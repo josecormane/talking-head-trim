@@ -7,51 +7,51 @@ export function scriptEvents() {
       window.clearTimeout(state.autosaveTimer); opts = opts || {};
       if (state.savePromise) { await state.savePromise; await new Promise(r => setTimeout(r, 0)); if (state.dirty) return saveEdl(opts); return state.lastSaveData; }
       const ver = state.editVersion, auto = Boolean(opts.auto);
-      setOperationState(auto ? "Autoguardando..." : "Guardando...", "busy");
-      setTextButtonBusy("saveButton", true, auto ? "Auto..." : "Guardando...");
+      setOperationState(auto ? "Autosaving..." : "Saving...", "busy");
+      setTextButtonBusy("saveButton", true, auto ? "Auto..." : "Saving...");
       state.savePromise = (async () => {
         const res = await fetch("/api/save-edl", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ranges: state.ranges }) });
         const data = await res.json(); if (!res.ok) throw new Error(data.error || "Error"); return data;
       })();
       try {
         const data = await state.savePromise; state.lastSaveData = data; const at = visibleTime();
-        if (state.editVersion === ver) { state.dirty = false; $("dirtyState").textContent = (auto ? "auto " : "") + at; setOperationState((auto ? "Auto " : "Guardado ") + at, "saved"); }
-        else { $("dirtyState").textContent = "pendiente"; scheduleAutosave(350); }
-        setStatus("Cambios guardados.\\\\nDuracion del corte: " + formatTime(data.output_duration)); return data;
+        if (state.editVersion === ver) { state.dirty = false; $("dirtyState").textContent = (auto ? "auto " : "") + at; setOperationState((auto ? "Auto " : "Saved ") + at, "saved"); }
+        else { $("dirtyState").textContent = "pending"; scheduleAutosave(350); }
+        setStatus("Changes saved.\\\\nCut duration: " + formatTime(data.output_duration)); return data;
       } catch (e) { $("dirtyState").textContent = "error"; setOperationState("Error", "error"); setStatus(e.message); throw e; }
       finally { state.savePromise = null; if (!state.rendering) setTextButtonBusy("saveButton", false); }
     }
     async function renderPreview() {
-      if (state.rendering) return; setRenderBusy("previewButton", true, "Render prueba...");
-      try { await saveEdl(); setOperationState("Renderizando preview...", "busy");
+      if (state.rendering) return; setRenderBusy("previewButton", true, "Rendering preview...");
+      try { await saveEdl(); setOperationState("Rendering preview...", "busy");
         const res = await fetch("/api/render-preview", { method: "POST" }); const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error");
-        setOperationState("Preview listo " + visibleTime(), "saved"); setStatus("Preview: " + data.output_path);
-      } catch (e) { setOperationState("Error preview", "error"); setStatus(e.message); throw e; }
+        setOperationState("Preview ready " + visibleTime(), "saved"); setStatus("Preview: " + data.output_path);
+      } catch (e) { setOperationState("Preview error", "error"); setStatus(e.message); throw e; }
       finally { setRenderBusy(null, false); }
     }
     async function renderFinal() {
-      if (state.rendering) return; setRenderBusy("finalButton", true, "Render final...");
-      try { await saveEdl(); setOperationState("Renderizando final...", "busy");
+      if (state.rendering) return; setRenderBusy("finalButton", true, "Rendering final...");
+      try { await saveEdl(); setOperationState("Rendering final...", "busy");
         const res = await fetch("/api/render-final", { method: "POST" }); const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error");
         await loadFinalRenders({ selectLatest: false });
-        setOperationState("Final listo " + visibleTime(), "saved"); setStatus("Final: " + data.output_path); openRenders();
-      } catch (e) { setOperationState("Error final", "error"); setStatus(e.message); throw e; }
+        setOperationState("Final ready " + visibleTime(), "saved"); setStatus("Final: " + data.output_path); openRenders();
+      } catch (e) { setOperationState("Final error", "error"); setStatus(e.message); throw e; }
       finally { setRenderBusy(null, false); }
     }
     function setStatus(t) { $("status").textContent = t; }
 
     // ── Renders modal ──
     function renderDateLabel(v) {
-      if (!v) return "n/d"; const d = new Date(v); if (Number.isNaN(d.getTime())) return String(v);
-      return d.toLocaleString("es-ES", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      if (!v) return "n/a"; const d = new Date(v); if (Number.isNaN(d.getTime())) return String(v);
+      return d.toLocaleString("en-US", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
     }
-    function renderDurationLabel(s) { return s != null && Number.isFinite(Number(s)) ? formatTime(Number(s)) : "n/d"; }
+    function renderDurationLabel(s) { return s != null && Number.isFinite(Number(s)) ? formatTime(Number(s)) : "n/a"; }
     function setRenderLibraryCount(c) { $("renderCountBadge").textContent = String(c || 0); $("rendersSummary").textContent = (c || 0) + " renders"; }
     function renderFinalRenderList() {
       const list = $("renderList");
-      if (!state.finalRenders.length) { list.innerHTML = '<div class="empty-state">Sin renders finales.</div>'; clearRenderPreview("Renderiza para ver resultados."); return; }
+      if (!state.finalRenders.length) { list.innerHTML = '<div class="empty-state">No final renders yet.</div>'; clearRenderPreview("Render to see results."); return; }
       list.innerHTML = state.finalRenders.map((r, i) => {
         const sel = r.path === state.selectedRenderPath ? " selected" : "";
         const tags = [r.is_latest ? '<span class="tag latest">latest</span>' : "", r.is_backup ? '<span class="tag backup">backup</span>' : "", '<span class="tag">' + escapeHtml(r.size_label || "") + "</span>"].filter(Boolean).join("");
@@ -67,7 +67,7 @@ export function scriptEvents() {
       const v = $("renderPreviewVideo");
       v.pause(); v.controls = false; v.hidden = false; v.src = r.media_url; v.playsInline = true; v.load(); updateRenderPlayButton();
       if (opts.play) v.play().catch(() => {});
-      $("renderDetails").innerHTML = '<strong>' + escapeHtml(r.title || "Render #" + r.render_number) + '</strong><span>' + escapeHtml(renderDateLabel(r.created_at || r.modified_at)) + '</span><span>' + escapeHtml(renderDurationLabel(r.duration)) + ' | ' + escapeHtml(r.size_label || "n/d") + '</span><span>' + escapeHtml(r.path) + '</span>';
+      $("renderDetails").innerHTML = '<strong>' + escapeHtml(r.title || "Render #" + r.render_number) + '</strong><span>' + escapeHtml(renderDateLabel(r.created_at || r.modified_at)) + '</span><span>' + escapeHtml(renderDurationLabel(r.duration)) + ' | ' + escapeHtml(r.size_label || "n/a") + '</span><span>' + escapeHtml(r.path) + '</span>';
       renderFinalRenderList();
     }
     function clearRenderPreview(message) {
@@ -76,15 +76,15 @@ export function scriptEvents() {
       v.pause(); v.controls = false; v.removeAttribute("src"); v.load(); v.hidden = true; updateRenderPlayButton();
       $("renderEmptyPreview").hidden = false;
       $("renderPreviewToolbar").hidden = true;
-      $("renderEmptyPreview").textContent = message || "Selecciona un render de la lista.";
-      $("renderDetails").textContent = message || "Selecciona un render.";
+      $("renderEmptyPreview").textContent = message || "Select a render from the list.";
+      $("renderDetails").textContent = message || "Select a render.";
     }
     function updateRenderPlayButton() {
       const b = $("renderPlayButton"), v = $("renderPreviewVideo");
       if (!b || !v) return;
       const playing = !v.paused && !v.ended;
-      b.innerHTML = iconSvg(playing ? "pause" : "play") + '<span>' + (playing ? "Pausar" : "Reproducir") + '</span>';
-      b.title = playing ? "Pausar en el panel" : "Reproducir en el panel";
+      b.innerHTML = iconSvg(playing ? "pause" : "play") + '<span>' + (playing ? "Pause" : "Play") + '</span>';
+      b.title = playing ? "Pause in panel" : "Play in panel";
       b.setAttribute("aria-label", b.title);
       b.dataset.iconReady = "1";
     }
@@ -113,7 +113,7 @@ export function scriptEvents() {
     }
     function openProjectInfo() { $("projectInfoModal").hidden = false; $("closeProjectInfoButton").focus(); }
     function closeProjectInfo() { $("projectInfoModal").hidden = true; }
-    function openRenders() { $("rendersModal").hidden = false; clearRenderPreview("Selecciona un render de la lista."); $("closeRendersButton").focus(); loadFinalRenders({ selectLatest: false }).catch(e => { $("renderList").innerHTML = '<div class="empty-state">' + escapeHtml(e.message) + '</div>'; }); }
+    function openRenders() { $("rendersModal").hidden = false; clearRenderPreview("Select a render from the list."); $("closeRendersButton").focus(); loadFinalRenders({ selectLatest: false }).catch(e => { $("renderList").innerHTML = '<div class="empty-state">' + escapeHtml(e.message) + '</div>'; }); }
     function closeRenders() { $("renderPreviewVideo").pause(); $("rendersModal").hidden = true; }
 
     // ── Load project ──
@@ -124,14 +124,14 @@ export function scriptEvents() {
       state.primaryRanges = (p.primary_ranges || p.ranges).map(r => ({ ...r }));
       state.selected = 0; state.undoStack = []; state.redoStack = [];
       state.dirty = false; state.editVersion = 0;
-      $("dirtyState").textContent = "sin cambios";
+      $("dirtyState").textContent = "no changes";
       $("resetButton").disabled = !state.primaryRanges.length;
       $("sourceVideo").src = "/media/source?playback=" + encodeURIComponent(p.playback_path);
-      $("summary").textContent = p.ranges.length + " seg | src " + formatTime(p.duration) + " | out " + formatTime(totalOutputDuration());
+      $("summary").textContent = p.ranges.length + " segments | src " + formatTime(p.duration) + " | out " + formatTime(totalOutputDuration());
       renderTimeline(); renderInspector({ focusTranscript: true }); updateHistoryButtons();
       loadFinalRenders().catch(() => setRenderLibraryCount(0));
-      setOperationState("Listo", "saved");
-      setStatus("Proyecto: " + p.edl_path + "\\\\nSource: " + p.source_path + "\\\\nPlayback: " + p.playback_path + (p.playback_is_proxy ? " (proxy)" : ""));
+      setOperationState("Ready", "saved");
+      setStatus("Project: " + p.edl_path + "\\\\nSource: " + p.source_path + "\\\\nPlayback: " + p.playback_path + (p.playback_is_proxy ? " (proxy)" : ""));
     }
 
     // ── Tab switching ──
@@ -145,7 +145,7 @@ export function scriptEvents() {
     $("timelineTrack").addEventListener("pointerdown", ev => {
       if (ev.target.id === "playhead") { ev.preventDefault(); state.dragPlayhead = true; return; }
       const handle = ev.target.closest(".handle");
-      if (handle) { ev.preventDefault(); stopPlayback(); const di = Number(handle.dataset.index); selectSegment(di); state.drag = { index: di, side: handle.dataset.side, before: editSnapshot("Mover handle"), changed: false }; return; }
+      if (handle) { ev.preventDefault(); stopPlayback(); const di = Number(handle.dataset.index); selectSegment(di); state.drag = { index: di, side: handle.dataset.side, before: editSnapshot("Move handle"), changed: false }; return; }
       const seg = ev.target.closest(".segment");
       if (seg) { selectSegment(Number(seg.dataset.index), false); seekSource(timeFromClientX(ev.clientX), false); return; }
       stopPlayback(); state.dragPlayhead = true; seekSource(timeFromClientX(ev.clientX));
@@ -155,7 +155,7 @@ export function scriptEvents() {
       if (state.dragPlayhead) seekSource(timeFromClientX(ev.clientX));
     });
     document.addEventListener("pointerup", () => {
-      if (state.drag?.changed) { pushUndoSnapshot(state.drag.before, "Mover " + (state.drag.side === "start" ? "inicio" : "final")); scheduleAutosave(); }
+      if (state.drag?.changed) { pushUndoSnapshot(state.drag.before, "Move " + (state.drag.side === "start" ? "start" : "end")); scheduleAutosave(); }
       state.drag = null; state.dragPlayhead = false; state.selectingWords = false;
     });
     function setTimelineZoom(value) {

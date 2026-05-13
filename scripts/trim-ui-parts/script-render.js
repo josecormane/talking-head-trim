@@ -61,7 +61,7 @@ export function scriptRender() {
         el.style.left = px(r.start) + "px"; el.style.width = Math.max(6, px(r.end - r.start)) + "px";
         const tm = el.querySelector(".segment-time"); if (tm) tm.textContent = formatTime(r.start) + "-" + formatTime(r.end);
       });
-      $("summary").textContent = state.ranges.length + " seg | src " + formatTime(state.project.duration) + " | out " + formatTime(totalOutputDuration());
+      $("summary").textContent = state.ranges.length + " segments | src " + formatTime(state.project.duration) + " | out " + formatTime(totalOutputDuration());
       updatePlayhead();
     }
     function updatePlayhead() {
@@ -76,7 +76,7 @@ export function scriptRender() {
       const list = $("segmentSilences"); list.innerHTML = "";
       const sils = silencesForRange(state.selected);
       $("segmentSilenceCount").textContent = String(sils.length);
-      if (!sils.length) { list.innerHTML = '<div style="color:var(--t3);font-size:11px;padding:4px 0;">Sin silencios en este segmento.</div>'; return; }
+      if (!sils.length) { list.innerHTML = '<div style="color:var(--t3);font-size:11px;padding:4px 0;">No silences in this segment.</div>'; return; }
       for (const s of sils) {
         const card = document.createElement("div");
         card.className = "silence-card" + (isSelectedSilence(s, state.selected) ? " selected" : "");
@@ -84,10 +84,10 @@ export function scriptRender() {
         info.textContent = formatTime(s.start) + "-" + formatTime(s.end) + " | " + s.duration.toFixed(2) + "s";
         info.addEventListener("click", () => selectSilence(state.selected, s, true));
         const prev = document.createElement("button"); prev.type = "button";
-        setIconButton(prev, "eye", "Preescuchar");
+        setIconButton(prev, "eye", "Preview");
         prev.addEventListener("click", () => { selectSilence(state.selected, s, false); const r = state.ranges[state.selected]; playWindow(Math.max(r.start, s.start - 0.35), Math.min(r.end, s.end + 0.35)); });
         const cut = document.createElement("button"); cut.type = "button";
-        setIconButton(cut, "scissors", "Cortar silencio", "icon-btn danger");
+        setIconButton(cut, "scissors", "Cut silence", "icon-btn danger");
         cut.addEventListener("click", () => cutSilenceFromRange(state.selected, s));
         card.append(info, prev, cut); list.appendChild(card);
       }
@@ -96,7 +96,7 @@ export function scriptRender() {
       if (!state.project) return; opts = opts || {};
       const ts = $("transcriptScroll"), prevScroll = ts ? ts.scrollTop : 0;
       const i = state.selected, r = state.ranges[i], spans = outputOffsets(), sp = spans[i] || { output_start: 0, output_end: 0 };
-      $("selectedTitle").textContent = "#" + (i + 1) + " " + (r.beat || "segmento");
+      $("selectedTitle").textContent = "#" + (i + 1) + " " + (r.beat || "segment");
       $("selectedOutput").textContent = formatTime(sp.output_start) + " - " + formatTime(sp.output_end);
       $("startInput").value = formatTime(r.start); $("endInput").value = formatTime(r.end);
       renderSegmentSilences(); renderTranscriptFlow();
@@ -115,8 +115,8 @@ export function scriptRender() {
         }
       };
       sorted.forEach((r, pos) => {
-        if (r.start > cursor + 0.02) addDrop(cursor, r.start, "Eliminado #" + (pos + 1));
-        blocks.push({ type: "keep", context: "keep_" + r.index, index: r.index, number: r.index + 1, label: r.beat || "segmento", start: round3(r.start), end: round3(r.end), words: wordsBetween(r.start, r.end), text: textBetween(r.start, r.end) || "(sin palabras)" });
+        if (r.start > cursor + 0.02) addDrop(cursor, r.start, "Removed #" + (pos + 1));
+        blocks.push({ type: "keep", context: "keep_" + r.index, index: r.index, number: r.index + 1, label: r.beat || "segment", start: round3(r.start), end: round3(r.end), words: wordsBetween(r.start, r.end), text: textBetween(r.start, r.end) || "(no words)" });
         cursor = Math.max(cursor, r.end);
       });
       if (state.project.duration > cursor + 0.02) addDrop(cursor, state.project.duration, "Final");
@@ -130,8 +130,8 @@ export function scriptRender() {
     function renderTranscriptFlow() {
       const flow = $("transcriptFlow"); flow.innerHTML = "";
       const blocks = transcriptBlocks();
-      $("transcriptDropCount").textContent = blocks.filter(b => b.type === "drop").length + " eliminados";
-      if (!blocks.length) { flow.innerHTML = '<div class="text-block">Sin transcripcion.</div>'; return; }
+      $("transcriptDropCount").textContent = blocks.filter(b => b.type === "drop").length + " removed";
+      if (!blocks.length) { flow.innerHTML = '<div class="text-block">No transcript.</div>'; return; }
       for (const b of blocks) {
         const sec = document.createElement("section");
         sec.className = "t-block " + b.type + (b.index === state.selected ? " current" : "");
@@ -143,12 +143,12 @@ export function scriptRender() {
         const time = document.createElement("span"); time.className = "badge"; time.textContent = formatTime(b.start) + "-" + formatTime(b.end);
         acts.appendChild(time);
         const viewBtn = document.createElement("button"); viewBtn.type = "button";
-        setIconButton(viewBtn, "eye", b.type === "keep" ? "Ir" : "Ver");
+        setIconButton(viewBtn, "eye", b.type === "keep" ? "Go" : "View");
         viewBtn.addEventListener("click", () => { stopPlayback(); if (b.type === "keep") selectSegment(b.index, true); else { seekSource(b.start, false); scrollToTime(b.start); } });
         acts.appendChild(viewBtn);
         if (b.type === "drop") {
           const addBtn = document.createElement("button"); addBtn.type = "button";
-          setIconButton(addBtn, "plus", "Agregar como segmento", "icon-btn success");
+          setIconButton(addBtn, "plus", "Add as segment", "icon-btn success");
           addBtn.addEventListener("click", () => insertWordsAsRange(b.words, "Inserted deleted block."));
           acts.appendChild(addBtn);
         }
@@ -170,7 +170,7 @@ export function scriptRender() {
     function updateDeletedSelectionUi() {
       document.querySelectorAll(".word-chip").forEach(c => c.classList.toggle("selected", isSelectedWord(Number(c.dataset.wordIndex), c.dataset.context)));
       const ws = selectedWords();
-      $("deletedSelectionLabel").textContent = ws.length ? formatTime(ws[0].start) + "-" + formatTime(ws.at(-1).end) + " (" + ws.length + ")" : "sin seleccion";
+      $("deletedSelectionLabel").textContent = ws.length ? formatTime(ws[0].start) + "-" + formatTime(ws.at(-1).end) + " (" + ws.length + ")" : "no selection";
     }
     function setWordSelection(ctx, wi, ext) {
       if (!ext || !state.wordSelection || state.wordSelection.context !== ctx) state.wordSelection = { context: ctx, anchor: wi, focus: wi };
@@ -179,7 +179,7 @@ export function scriptRender() {
     }
     function renderDeletedWordsElement(container, words, ctx) {
       container.innerHTML = ""; container.classList.add("word-list");
-      if (!words.length) { container.textContent = "(sin texto)"; return; }
+      if (!words.length) { container.textContent = "(no text)"; return; }
       for (const w of words) {
         const c = document.createElement("button"); c.type = "button"; c.className = "word-chip";
         c.dataset.wordIndex = String(w.index); c.dataset.context = ctx; c.textContent = w.text;
@@ -196,48 +196,48 @@ export function scriptRender() {
     function cutSilenceFromRange(ri, s) {
       stopPlayback(); const r = state.ranges[ri]; if (!r) return;
       const cs = round3(clamp(s.start, r.start, r.end)), ce = round3(clamp(s.end, r.start, r.end));
-      if (ce - cs < 0.08) { setStatus("Silencio demasiado corto."); return; }
+      if (ce - cs < 0.08) { setStatus("Silence too short."); return; }
       const note = "Removed silence " + formatTime(cs) + "-" + formatTime(ce);
       const frags = [];
       if (cs - r.start >= 0.08) frags.push({ ...r, end: cs, quote: textBetween(r.start, cs) || r.quote || "", reason: [r.reason, note].filter(Boolean).join(" ") });
-      if (r.end - ce >= 0.08) frags.push({ ...r, start: ce, beat: (r.beat || "seg") + "_after_" + (ri + 1), quote: textBetween(ce, r.end) || r.quote || "", reason: [r.reason, note].filter(Boolean).join(" ") });
-      if (!frags.length) { setStatus("Cortar eliminaría todo el segmento."); return; }
-      const before = editSnapshot("Cortar silencio");
+      if (r.end - ce >= 0.08) frags.push({ ...r, start: ce, beat: (r.beat || "segment") + "_after_" + (ri + 1), quote: textBetween(ce, r.end) || r.quote || "", reason: [r.reason, note].filter(Boolean).join(" ") });
+      if (!frags.length) { setStatus("Cutting would remove the whole segment."); return; }
+      const before = editSnapshot("Cut silence");
       const target = frags.length > 1 ? frags[1] : frags[0];
       state.ranges.splice(ri, 1, ...frags); state.ranges.sort((a, b) => a.start - b.start);
       const ni = state.ranges.findIndex(x => x === target);
       state.selected = ni === -1 ? clamp(ri, 0, state.ranges.length - 1) : ni;
       state.selectedSilence = null;
-      pushUndoSnapshot(before, "Cortar silencio"); markDirty();
+      pushUndoSnapshot(before, "Cut silence"); markDirty();
       renderTimeline(); renderInspector({ focusTranscript: true });
       seekSource(target.start, false); scrollToTime(target.start);
     }
     function insertWordsAsRange(raw, reason) {
       const words = [...raw].sort((a, b) => a.start - b.start);
-      if (!words.length) { setStatus("Sin palabras para agregar."); return; }
+      if (!words.length) { setStatus("No words to add."); return; }
       const s = round3(words[0].start), e = round3(words.at(-1).end);
-      if (e - s < 0.08) { setStatus("Seleccion muy corta."); return; }
-      if (state.ranges.some(r => s < r.end && e > r.start)) { setStatus("Se cruza con segmento existente."); return; }
+      if (e - s < 0.08) { setStatus("Selection too short."); return; }
+      if (state.ranges.some(r => s < r.end && e > r.start)) { setStatus("Overlaps an existing segment."); return; }
       const nr = { source: state.project.source_name, start: s, end: e, beat: "insert_" + (state.ranges.length + 1), quote: cleanText(words.map(w => w.text).join(" ")), reason };
-      const before = editSnapshot("Agregar segmento");
+      const before = editSnapshot("Add segment");
       state.ranges.push(nr); state.ranges.sort((a, b) => a.start - b.start);
       const ni = state.ranges.findIndex(r => r === nr);
       state.selected = ni === -1 ? 0 : ni; state.wordSelection = null; state.selectedSilence = null;
-      pushUndoSnapshot(before, "Agregar segmento"); markDirty();
+      pushUndoSnapshot(before, "Add segment"); markDirty();
       renderTimeline(); renderInspector({ focusTranscript: true }); seekSource(s, false);
     }
-    function addSelectedDeletedRange() { const ws = selectedWords(); if (!ws.length) { setStatus("Selecciona palabras primero."); return; } insertWordsAsRange(ws, "Inserted selected words."); }
+    function addSelectedDeletedRange() { const ws = selectedWords(); if (!ws.length) { setStatus("Select words first."); return; } insertWordsAsRange(ws, "Inserted selected words."); }
     function clearDeletedSelection() { state.wordSelection = null; updateDeletedSelectionUi(); }
     function resetToPrimaryCut() {
       if (state.rendering) return;
-      if (!state.primaryRanges.length) { setOperationState("Sin corte inicial", "error"); return; }
-      if (sameRanges(state.ranges, state.primaryRanges)) { setOperationState("Ya en corte primario", "saved"); return; }
+      if (!state.primaryRanges.length) { setOperationState("No primary cut", "error"); return; }
+      if (sameRanges(state.ranges, state.primaryRanges)) { setOperationState("Already at primary cut", "saved"); return; }
       const before = editSnapshot("Reset");
       state.ranges = cloneRanges(state.primaryRanges); state.selected = 0; state.wordSelection = null; state.selectedSilence = null;
       pushUndoSnapshot(before, "Reset"); markDirty();
       renderTimeline(); renderInspector({ focusTranscript: true });
       seekSource(state.ranges[0]?.start || 0, false); scrollToTime(state.ranges[0]?.start || 0);
-      setOperationState("Reset aplicado", "pending");
+      setOperationState("Reset applied", "pending");
     }
 `;
 }

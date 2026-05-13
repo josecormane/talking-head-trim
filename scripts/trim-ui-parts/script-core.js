@@ -52,9 +52,9 @@ export function scriptCore() {
     function setRenderBusy(activeId, busy, busyLabel) {
       state.rendering = busy;
       document.body.classList.toggle("rendering", busy);
-      setTextButtonBusy("saveButton", busy, "Guardando...");
-      setTextButtonBusy("previewButton", busy, activeId === "previewButton" ? (busyLabel || "Render prueba...") : "Render prueba");
-      setTextButtonBusy("finalButton", busy, activeId === "finalButton" ? (busyLabel || "Render final...") : "Render final");
+      setTextButtonBusy("saveButton", busy, "Saving...");
+      setTextButtonBusy("previewButton", busy, activeId === "previewButton" ? (busyLabel || "Rendering preview...") : "Render preview");
+      setTextButtonBusy("finalButton", busy, activeId === "finalButton" ? (busyLabel || "Rendering final...") : "Render final");
       $("resetButton").disabled = busy || !state.primaryRanges.length;
       updateHistoryButtons();
     }
@@ -62,12 +62,12 @@ export function scriptCore() {
       const u = $("undoButton"), r = $("redoButton"); if (!u || !r) return;
       u.disabled = state.rendering || !state.undoStack.length;
       r.disabled = state.rendering || !state.redoStack.length;
-      u.title = state.undoStack.length ? "Deshacer: " + (state.undoStack.at(-1)?.label || "") + " (Ctrl+Z)" : "Deshacer (Ctrl+Z)";
-      r.title = state.redoStack.length ? "Rehacer: " + (state.redoStack.at(-1)?.label || "") + " (Ctrl+Shift+Z)" : "Rehacer (Ctrl+Shift+Z)";
+      u.title = state.undoStack.length ? "Undo: " + (state.undoStack.at(-1)?.label || "") + " (Ctrl+Z)" : "Undo (Ctrl+Z)";
+      r.title = state.redoStack.length ? "Redo: " + (state.redoStack.at(-1)?.label || "") + " (Ctrl+Shift+Z)" : "Redo (Ctrl+Shift+Z)";
     }
     function pushUndoSnapshot(snap, label) {
       if (!snap || state.isRestoringHistory || sameRanges(snap.ranges, state.ranges)) return;
-      const entry = { ranges: cloneRanges(snap.ranges), selected: snap.selected, label: label || snap.label || "Cambio" };
+      const entry = { ranges: cloneRanges(snap.ranges), selected: snap.selected, label: label || snap.label || "Change" };
       const last = state.undoStack.at(-1);
       if (!last || !sameRanges(last.ranges, entry.ranges)) {
         state.undoStack.push(entry);
@@ -91,19 +91,19 @@ export function scriptCore() {
       }
       state.isRestoringHistory = false;
       updateHistoryButtons();
-      setStatus(prefix + ": " + (snap.label || "cambio"));
+      setStatus(prefix + ": " + (snap.label || "change"));
     }
     function undoEdit() {
       const s = state.undoStack.pop(); if (!s) return;
       state.redoStack.push(editSnapshot(s.label));
       if (state.redoStack.length > HISTORY_LIMIT) state.redoStack.shift();
-      restoreSnapshot(s, "Deshecho");
+      restoreSnapshot(s, "Undone");
     }
     function redoEdit() {
       const s = state.redoStack.pop(); if (!s) return;
       state.undoStack.push(editSnapshot(s.label));
       if (state.undoStack.length > HISTORY_LIMIT) state.undoStack.shift();
-      restoreSnapshot(s, "Rehecho");
+      restoreSnapshot(s, "Redone");
     }
 
     // ── Icons ──
@@ -259,7 +259,7 @@ export function scriptCore() {
       const changed = setBoundaryValue(i, side, raw);
       state.selectedSilence = null;
       if (changed) {
-        if (opts.recordHistory !== false) pushUndoSnapshot(before, opts.historyLabel || "Ajustar " + (side === "start" ? "inicio" : "final"));
+        if (opts.recordHistory !== false) pushUndoSnapshot(before, opts.historyLabel || "Adjust " + (side === "start" ? "start" : "end"));
         markDirty({ autosave: opts.autosave !== false });
       }
       updateTimelinePositions(); renderInspector({ focusTranscript: Boolean(opts.focusTranscript) });
@@ -267,12 +267,12 @@ export function scriptCore() {
     }
     function applyNudge(side, amount) {
       const scope = $("nudgeScope").value;
-      const label = "Mover " + (side === "start" ? "inicio" : "final") + " " + Math.abs(amount * 1000).toFixed(0) + " ms";
+      const label = "Move " + (side === "start" ? "start" : "end") + " " + Math.abs(amount * 1000).toFixed(0) + " ms";
       if (scope !== "all") { setBoundary(state.selected, side, state.ranges[state.selected][side] + amount, { historyLabel: label }); return; }
-      const before = editSnapshot(label + " en todos"); let changed = 0;
+      const before = editSnapshot(label + " for all"); let changed = 0;
       state.ranges.forEach((r, i) => { if (setBoundaryValue(i, side, r[side] + amount)) changed++; });
       state.selectedSilence = null;
-      if (changed) { pushUndoSnapshot(before, label + " en todos"); markDirty(); }
+      if (changed) { pushUndoSnapshot(before, label + " for all"); markDirty(); }
       updateTimelinePositions(); renderInspector();
     }
 
@@ -280,14 +280,14 @@ export function scriptCore() {
     function scheduleAutosave(delay) {
       if (!state.project || state.rendering) return;
       window.clearTimeout(state.autosaveTimer);
-      setOperationState("Cambios pendientes...", "pending");
+      setOperationState("Unsaved changes...", "pending");
       state.autosaveTimer = window.setTimeout(() => {
         saveEdl({ auto: true }).catch(e => { $("dirtyState").textContent = "error"; setOperationState("Error", "error"); setStatus(e.message); });
       }, delay || 900);
     }
     function markDirty(opts) {
       state.dirty = true; state.editVersion++;
-      $("dirtyState").textContent = "sin guardar";
+      $("dirtyState").textContent = "unsaved";
       if (!opts || opts.autosave !== false) scheduleAutosave();
     }
 
@@ -312,14 +312,14 @@ export function scriptCore() {
       const duration = (state.project && state.project.duration) || v.duration || 0;
       const mode = state.playMode === "paused" ? state.playbackChoice : state.playMode;
       el.dataset.mode = state.playMode === "paused" ? "" : state.playMode;
-      el.title = mode === "edit" ? "Tiempo source en reproduccion del corte" : mode === "source" ? "Tiempo source" : mode === "context" ? "Tiempo source del contexto" : "Tiempo source";
+      el.title = mode === "edit" ? "Source time during cut playback" : mode === "source" ? "Source time" : mode === "context" ? "Source time with context" : "Source time";
       el.textContent = formatTime(v.currentTime || 0) + " / " + formatTime(duration);
     }
     function playWindow(s, e) { setPlayMode("context"); state.stopAt = e; $("sourceVideo").currentTime = Math.max(0, s); $("sourceVideo").play(); }
     function setPlayMode(mode) {
       state.playMode = mode;
       const playing = mode !== "paused";
-      setIconButton($("playPauseButton"), playing ? "pause" : "play", playing ? "Pausar (Espacio)" : "Reproducir (Espacio)", "transport-play " + (playing ? "danger" : "success"));
+      setIconButton($("playPauseButton"), playing ? "pause" : "play", playing ? "Pause (Space)" : "Play (Space)", "transport-play " + (playing ? "danger" : "success"));
       updateTransportTimecode();
     }
     function setPlaybackChoice(c) {

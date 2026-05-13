@@ -6,6 +6,20 @@ Local workflow for cleaning raw talking-head recordings before vertical video as
 
 It creates a transcript-aware edit packet, supports manual/external transcripts or transcription APIs, serves an interactive trim UI, and renders the final cut without uploading source video except when an API transcriber is selected.
 
+## What It Looks Like
+
+Start with a long raw recording and review the proposed cut on the original source timeline.
+
+![Talking Head Trim UI showing a 12:45 source reduced to a 2:49 cut](docs/images/01-original-long-video-trim-ui.png)
+
+Use the side panel to inspect the selected segment, read surrounding transcript, and recover removed text when needed.
+
+![Review panel with selected segment, removed transcript blocks, and export controls](docs/images/02-ready-to-export-review-panel.png)
+
+The interface is built for the cleanup pass before the main edit: adjust segments, remove internal silences, recover phrases, preview the cut, review renders, and export max-res.
+
+![Annotated screenshot explaining the trim UI capabilities](docs/images/03-interface-capabilities.png)
+
 ## Requirements
 
 - Node.js 20+

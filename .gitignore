@@ -1,0 +1,15 @@
+.env
+node_modules/
+.DS_Store
+
+# Local video projects and generated media
+projects/
+runs/
+**/presenter_edit/transcripts/*.json
+**/presenter_edit/silence_scan/
+**/presenter_edit/trim_ui/
+**/presenter_edit/review/
+**/presenter_edit/*.mp4
+**/presenter_edit/*.mov
+**/presenter_edit/*.wav
+**/presenter_edit/*_clips/

@@ -1,0 +1,31 @@
+{
+  "name": "talking-head-trim",
+  "version": "0.1.0",
+  "description": "Local talking-head video cleanup workflow with transcript-aware trim UI.",
+  "type": "module",
+  "bin": {
+    "talking-head-prepare": "scripts/prepare-talking-head-cleanup.mjs",
+    "talking-head-trim-ui": "scripts/serve-talking-head-trim-ui.mjs",
+    "talking-head-render-final": "scripts/render-talking-head-final.mjs"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "reel:talking-head:prepare": "node scripts/prepare-talking-head-cleanup.mjs",
+    "reel:talking-head:review": "node scripts/build-talking-head-review.mjs",
+    "reel:talking-head:trim-ui": "node scripts/serve-talking-head-trim-ui.mjs",
+    "reel:talking-head:render-final": "node scripts/render-talking-head-final.mjs",
+    "talking-head:prepare": "node scripts/prepare-talking-head-cleanup.mjs",
+    "talking-head:review": "node scripts/build-talking-head-review.mjs",
+    "talking-head:trim-ui": "node scripts/serve-talking-head-trim-ui.mjs",
+    "talking-head:render-final": "node scripts/render-talking-head-final.mjs"
+  },
+  "keywords": [
+    "video",
+    "talking-head",
+    "transcript",
+    "editing",
+    "skill"
+  ],
+  "author": "",
+  "license": "MIT"
+}

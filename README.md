@@ -1,5 +1,7 @@
 # Talking Head Trim
 
+[![skills.sh](https://skills.sh/b/josecormane/talking-head-trim)](https://skills.sh/josecormane/talking-head-trim)
+
 Local workflow for cleaning raw talking-head recordings before vertical video assembly.
 
 It creates a transcript-aware edit packet, supports manual/external transcripts or transcription APIs, serves an interactive trim UI, and renders the final cut without uploading source video except when an API transcriber is selected.

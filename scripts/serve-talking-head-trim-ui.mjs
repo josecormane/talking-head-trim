@@ -209,6 +209,142 @@ function runCommand(cmd, cmdArgs, cwd = PROJECT_ROOT) {
   });
 }
 
+const renderJobs = new Map();
+let activeRenderJobId = "";
+let renderJobSeq = 0;
+
+function trimJobStore() {
+  const jobs = [...renderJobs.values()];
+  if (jobs.length <= 8) return;
+  jobs
+    .filter((job) => job.status !== "running")
+    .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())
+    .slice(0, Math.max(0, jobs.length - 8))
+    .forEach((job) => renderJobs.delete(job.id));
+}
+
+function publicRenderJob(job) {
+  if (!job) return null;
+  return {
+    id: job.id,
+    type: job.type,
+    status: job.status,
+    progress: job.progress,
+    completed_steps: job.completed_steps,
+    total_steps: job.total_steps,
+    phase: job.phase,
+    output_path: job.output_path,
+    media_url: job.media_url,
+    started_at: job.started_at,
+    finished_at: job.finished_at || "",
+    error: job.error || "",
+    log_tail: job.log_tail.slice(-40),
+    result: job.result || null,
+  };
+}
+
+function runningRenderJob() {
+  const job = activeRenderJobId ? renderJobs.get(activeRenderJobId) : null;
+  return job && job.status === "running" ? job : null;
+}
+
+function appendRenderJobLog(job, text) {
+  String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .forEach((line) => {
+      job.log_tail.push(line);
+      if (job.log_tail.length > 120) job.log_tail.shift();
+    });
+}
+
+function setRenderJobProgress(job, completed, total, phase) {
+  if (Number.isFinite(total) && total > 0) job.total_steps = total;
+  if (Number.isFinite(completed)) job.completed_steps = Math.max(0, completed);
+  if (phase) job.phase = phase;
+  if (job.total_steps > 0) {
+    const ratio = Math.min(1, Math.max(0, job.completed_steps / job.total_steps));
+    job.progress = Math.max(1, Math.min(98, Math.round(ratio * 96)));
+  }
+}
+
+function startRenderJob(options) {
+  const job = {
+    id: `render_${Date.now()}_${++renderJobSeq}`,
+    type: options.type,
+    status: "running",
+    progress: 1,
+    completed_steps: 0,
+    total_steps: options.totalSteps || 0,
+    phase: options.phase || "Starting",
+    output_path: options.outputPath,
+    media_url: options.mediaUrl,
+    started_at: new Date().toISOString(),
+    finished_at: "",
+    error: "",
+    log_tail: [],
+    result: null,
+  };
+  renderJobs.set(job.id, job);
+  activeRenderJobId = job.id;
+  trimJobStore();
+
+  const child = spawn(options.cmd, options.args, {
+    cwd: options.cwd || PROJECT_ROOT,
+    env: { ...process.env, PYTHONUNBUFFERED: "1" },
+  });
+  job.pid = child.pid;
+
+  const buffers = { stdout: "", stderr: "" };
+  const handleLine = (line, stream) => {
+    appendRenderJobLog(job, stream === "stderr" ? `[stderr] ${line}` : line);
+    if (options.onLine) options.onLine(job, line, stream);
+  };
+  const handleChunk = (stream, chunk) => {
+    buffers[stream] += chunk.toString();
+    const parts = buffers[stream].split(/\r?\n/);
+    buffers[stream] = parts.pop() || "";
+    parts.forEach((line) => handleLine(line, stream));
+  };
+
+  child.stdout.on("data", (chunk) => handleChunk("stdout", chunk));
+  child.stderr.on("data", (chunk) => handleChunk("stderr", chunk));
+  child.on("error", (error) => {
+    job.status = "error";
+    job.progress = 0;
+    job.error = error.message;
+    job.finished_at = new Date().toISOString();
+    if (activeRenderJobId === job.id) activeRenderJobId = "";
+  });
+  child.on("close", (code) => {
+    for (const stream of ["stdout", "stderr"]) {
+      if (buffers[stream]) handleLine(buffers[stream], stream);
+    }
+    job.finished_at = new Date().toISOString();
+    if (code === 0) {
+      job.status = "done";
+      job.progress = 100;
+      job.completed_steps = job.total_steps || job.completed_steps;
+      job.phase = "Complete";
+      try {
+        job.result = options.onSuccess ? options.onSuccess(job) : null;
+      } catch (error) {
+        job.result = null;
+        appendRenderJobLog(job, `[result] ${error.message}`);
+      }
+    } else {
+      job.status = "error";
+      job.error = `Render command exited with code ${code}`;
+      job.phase = "Error";
+    }
+    if (activeRenderJobId === job.id) activeRenderJobId = "";
+    trimJobStore();
+  });
+
+  return job;
+}
+
 function buildOutputOffsets(ranges) {
   let offset = 0;
   return ranges.map((range, index) => {
@@ -468,6 +604,17 @@ function createApp(config) {
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/api/render-job") {
+      const id = url.searchParams.get("id") || activeRenderJobId;
+      const job = id ? renderJobs.get(id) : runningRenderJob();
+      if (!job) {
+        sendJson(res, { error: "Render job not found" }, 404);
+        return;
+      }
+      sendJson(res, { ok: true, job: publicRenderJob(job) });
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/save-edl") {
       const body = JSON.parse(await collectBody(req));
       const project = projectData();
@@ -495,48 +642,101 @@ function createApp(config) {
 
     if (req.method === "POST" && url.pathname === "/api/render-preview") {
       if (!existsSync(adjustedEdlPath)) throw new Error("Save an adjusted EDL before rendering preview.");
+      const existingJob = runningRenderJob();
+      if (existingJob) {
+        sendJson(res, { error: "A render is already running.", job_id: existingJob.id, job: publicRenderJob(existingJob) }, 409);
+        return;
+      }
+      const edl = readJson(adjustedEdlPath);
+      const totalSteps = Math.max(1, (edl.ranges || []).length);
       const outPath = resolve(editDir, "presenter_cut_trim_preview.mp4");
       const renderPath = resolve(PROJECT_ROOT, "tools/video-use/helpers/render.py");
-      const result = await runCommand("python3", [
-        renderPath,
-        adjustedEdlPath,
-        "-o",
-        outPath,
-        "--draft",
-        "--no-subtitles",
-        "--no-loudnorm",
-      ]);
-      sendJson(res, {
-        ok: true,
-        output_path: outPath,
-        media_url: "/media/preview",
-        log: `${result.stdout}\n${result.stderr}`.trim(),
+      const job = startRenderJob({
+        type: "preview",
+        outputPath: outPath,
+        mediaUrl: "/media/preview",
+        totalSteps,
+        phase: `Rendering preview 0/${totalSteps}`,
+        cmd: "python3",
+        args: [
+          "-u",
+          renderPath,
+          adjustedEdlPath,
+          "-o",
+          outPath,
+          "--draft",
+          "--no-subtitles",
+          "--no-loudnorm",
+        ],
+        onLine: (activeJob, line) => {
+          const segmentMatch = /^\s+\[(\d+)\]\s+/.exec(line);
+          if (segmentMatch) {
+            const completed = Number(segmentMatch[1]) + 1;
+            setRenderJobProgress(activeJob, completed, totalSteps, `Rendering preview ${completed}/${totalSteps}`);
+          } else if (/concatenating|concat/i.test(line)) {
+            activeJob.progress = Math.max(activeJob.progress, 98);
+            activeJob.phase = "Finalizing preview";
+          }
+        },
+        onSuccess: () => ({
+          output_path: outPath,
+          media_url: "/media/preview",
+        }),
       });
+      sendJson(res, { ok: true, job_id: job.id, job: publicRenderJob(job) });
       return;
     }
 
     if (req.method === "POST" && url.pathname === "/api/render-final") {
       if (!existsSync(adjustedEdlPath)) throw new Error("Save an adjusted EDL before rendering final.");
+      const existingJob = runningRenderJob();
+      if (existingJob) {
+        sendJson(res, { error: "A render is already running.", job_id: existingJob.id, job: publicRenderJob(existingJob) }, 409);
+        return;
+      }
+      const edl = readJson(adjustedEdlPath);
+      const totalSteps = Math.max(1, (edl.ranges || []).length);
       const outPath = resolve(editDir, `presenter_cut_final_maxres_${timestampSlug()}.mp4`);
       const scriptPath = resolve(PROJECT_ROOT, "scripts/render-talking-head-final.mjs");
-      const result = await runCommand("node", [
-        scriptPath,
-        "--edit-dir",
-        editDir,
-        "--edl",
-        adjustedEdlPath,
-        "--output",
-        outPath,
-      ]);
-      const renders = finalRendersData();
-      sendJson(res, {
-        ok: true,
-        output_path: outPath,
-        media_url: "/media/render?path=" + encodeURIComponent(outPath),
-        render: renders.renders.find((render) => render.path === outPath) || null,
-        renders,
-        log: `${result.stdout}\n${result.stderr}`.trim(),
+      const job = startRenderJob({
+        type: "final",
+        outputPath: outPath,
+        mediaUrl: "/media/render?path=" + encodeURIComponent(outPath),
+        totalSteps,
+        phase: `Rendering final 0/${totalSteps}`,
+        cmd: "node",
+        args: [
+          scriptPath,
+          "--edit-dir",
+          editDir,
+          "--edl",
+          adjustedEdlPath,
+          "--output",
+          outPath,
+        ],
+        onLine: (activeJob, line) => {
+          const segmentMatch = /^\[(\d+)\/(\d+)\]\s*(.*)$/.exec(line);
+          if (segmentMatch) {
+            const completed = Number(segmentMatch[1]);
+            const total = Number(segmentMatch[2]);
+            const fileLabel = segmentMatch[3] ? ` · ${segmentMatch[3]}` : "";
+            setRenderJobProgress(activeJob, completed, total, `Rendering final ${completed}/${total}${fileLabel}`);
+          } else if (/concat|ffprobe|manifest|latest/i.test(line)) {
+            activeJob.progress = Math.max(activeJob.progress, 98);
+            activeJob.phase = "Finalizing final render";
+          }
+        },
+        onSuccess: () => {
+          const renders = finalRendersData();
+          return {
+            output_path: outPath,
+            media_url: "/media/render?path=" + encodeURIComponent(outPath),
+            render: renders.renders.find((render) => render.path === outPath) || null,
+            renders,
+          };
+        },
       });
+      sendJson(res, { ok: true, job_id: job.id, job: publicRenderJob(job) });
       return;
     }
 

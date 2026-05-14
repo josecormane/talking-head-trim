@@ -21,22 +21,56 @@ export function scriptEvents() {
       } catch (e) { $("dirtyState").textContent = "error"; setOperationState("Error", "error"); setStatus(e.message); throw e; }
       finally { state.savePromise = null; if (!state.rendering) setTextButtonBusy("saveButton", false); }
     }
+    function renderJobPercent(job) {
+      const p = Math.round(Number(job?.progress) || 0);
+      return clamp(p, 0, 100);
+    }
+    function renderJobSummary(label, job) {
+      const pct = renderJobPercent(job);
+      const steps = job?.total_steps ? " · " + (job.completed_steps || 0) + "/" + job.total_steps : "";
+      const phase = job?.phase ? " · " + job.phase : "";
+      return label + " " + pct + "%" + steps + phase;
+    }
+    async function waitForRenderJob(jobId, activeId, label) {
+      let lastJob = null;
+      while (true) {
+        const res = await fetch("/api/render-job?id=" + encodeURIComponent(jobId));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Render job not found");
+        const job = data.job; lastJob = job;
+        const pct = renderJobPercent(job);
+        setRenderBusy(activeId, true, label + " " + pct + "%");
+        setOperationState(renderJobSummary(label, job), "busy");
+        setStatus(renderJobSummary(label, job) + (job.output_path ? "\\nOutput: " + job.output_path : ""));
+        if (job.status === "done") return job;
+        if (job.status === "error") throw new Error(job.error || "Render failed");
+        await new Promise(r => setTimeout(r, 850));
+      }
+    }
+    async function startRenderJob(endpoint, activeId, label) {
+      const res = await fetch(endpoint, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok && !data.job_id) throw new Error(data.error || "Error");
+      const jobId = data.job_id || data.job?.id;
+      if (!jobId) throw new Error("Render job did not return an id.");
+      return waitForRenderJob(jobId, activeId, label);
+    }
     async function renderPreview() {
-      if (state.rendering) return; setRenderBusy("previewButton", true, "Rendering preview...");
-      try { await saveEdl(); setOperationState("Rendering preview...", "busy");
-        const res = await fetch("/api/render-preview", { method: "POST" }); const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error");
-        setOperationState("Preview ready " + visibleTime(), "saved"); setStatus("Preview: " + data.output_path);
+      if (state.rendering) return; setRenderBusy("previewButton", true, "Preview 0%");
+      try { await saveEdl(); setOperationState("Preview 0%", "busy");
+        const job = await startRenderJob("/api/render-preview", "previewButton", "Preview");
+        const out = job.result?.output_path || job.output_path;
+        setOperationState("Preview ready " + visibleTime(), "saved"); setStatus("Preview: " + out);
       } catch (e) { setOperationState("Preview error", "error"); setStatus(e.message); throw e; }
       finally { setRenderBusy(null, false); }
     }
     async function renderFinal() {
-      if (state.rendering) return; setRenderBusy("finalButton", true, "Rendering final...");
-      try { await saveEdl(); setOperationState("Rendering final...", "busy");
-        const res = await fetch("/api/render-final", { method: "POST" }); const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error");
+      if (state.rendering) return; setRenderBusy("finalButton", true, "Final 0%");
+      try { await saveEdl(); setOperationState("Final 0%", "busy");
+        const job = await startRenderJob("/api/render-final", "finalButton", "Final");
         await loadFinalRenders({ selectLatest: false });
-        setOperationState("Final ready " + visibleTime(), "saved"); setStatus("Final: " + data.output_path); openRenders();
+        const out = job.result?.output_path || job.output_path;
+        setOperationState("Final ready " + visibleTime(), "saved"); setStatus("Final: " + out); openRenders();
       } catch (e) { setOperationState("Final error", "error"); setStatus(e.message); throw e; }
       finally { setRenderBusy(null, false); }
     }

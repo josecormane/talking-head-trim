@@ -69,7 +69,7 @@ header {
   height: 28px; padding: 0 10px;
   border: 1px solid var(--b1); border-radius: 999px;
   background: var(--s2); color: var(--t3); font-size: 11px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: min(420px, 36vw);
 }
 .activity-status::before {
   content: ''; width: 6px; height: 6px; border-radius: 50%;

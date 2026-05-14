@@ -11,7 +11,7 @@ Talking Head Trim creates a transcript-aware edit packet, proposes the cleanup c
 The launch demo uses a real iPhone talking-head recording:
 
 - Source: `2:24` raw recording
-- Output: `0:54` editable first cut
+- Output: `0:52` editable first cut
 - Mode: `tight_reel`
 - Max duration target: `90s`
 - Transcriber: OpenAI
@@ -22,7 +22,7 @@ The launch demo uses a real iPhone talking-head recording:
 
 Review the proposed cut on the original source timeline. Green sections are kept, yellow marks are detected silences, and the red playhead snaps to cut points.
 
-![Talking Head Trim UI showing a 2:24 source reduced to a 0:54 cut](docs/images/01-img3322-trim-ui.png)
+![Talking Head Trim UI showing a 2:24 source reduced to a 0:52 cut](docs/images/01-img3322-trim-ui.png)
 
 Use the side panel to inspect the selected segment, read surrounding transcript, and recover removed text when needed.
 

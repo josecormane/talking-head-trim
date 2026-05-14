@@ -42,6 +42,7 @@ export function scriptCore() {
       const el = $("operationStatus");
       if (!el) return;
       el.textContent = msg;
+      el.title = msg;
       el.className = "activity-status" + (tone && tone !== "idle" ? " " + tone : "");
     }
     function setTextButtonBusy(id, busy, busyLabel) {

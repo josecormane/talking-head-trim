@@ -2,23 +2,37 @@
 
 [![skills.sh](https://skills.sh/b/josecormane/talking-head-trim)](https://skills.sh/josecormane/talking-head-trim)
 
-Local workflow for cleaning raw talking-head recordings before vertical video assembly.
+Clean a messy talking-head raw recording into an editable first cut.
 
-It creates a transcript-aware edit packet, supports manual/external transcripts or transcription APIs, serves an interactive trim UI, and renders the final cut without uploading source video except when an API transcriber is selected.
+Talking Head Trim creates a transcript-aware edit packet, proposes the cleanup cut, serves an interactive trim UI, and renders the final video locally. It supports manual/external transcripts or transcription APIs. The source video stays local except when an API transcriber is selected, and then only the extracted audio is sent to that provider.
+
+## See It In Action
+
+The launch demo uses a real iPhone talking-head recording:
+
+- Source: `2:24` raw recording
+- Output: `1:05` editable first cut
+- Mode: `tight_reel`
+- Max duration target: `90s`
+- Transcriber: OpenAI
+
+![Animated demo showing the source recording, trim UI, and capabilities](docs/images/05-img3322-timeline-demo.gif)
 
 ## What It Looks Like
 
-Start with a long raw recording and review the proposed cut on the original source timeline.
+Review the proposed cut on the original source timeline. Green sections are kept, yellow marks are detected silences, and the red playhead snaps to cut points.
 
-![Talking Head Trim UI showing a 12:45 source reduced to a 2:49 cut](docs/images/01-original-long-video-trim-ui.png)
+![Talking Head Trim UI showing a 2:24 source reduced to a 1:05 cut](docs/images/01-img3322-trim-ui.png)
 
 Use the side panel to inspect the selected segment, read surrounding transcript, and recover removed text when needed.
 
-![Review panel with selected segment, removed transcript blocks, and export controls](docs/images/02-ready-to-export-review-panel.png)
+![Review panel with selected segment, removed transcript blocks, and export controls](docs/images/02-img3322-review-panel.png)
 
 The interface is built for the cleanup pass before the main edit: adjust segments, remove internal silences, recover phrases, preview the cut, review renders, and export max-res.
 
-![Annotated screenshot explaining the trim UI capabilities](docs/images/03-interface-capabilities.png)
+![Annotated screenshot explaining the trim UI capabilities](docs/images/03-img3322-interface-capabilities.png)
+
+![Before and after image showing source duration versus clean output duration](docs/images/04-img3322-before-after.png)
 
 ## Requirements
 
@@ -37,6 +51,14 @@ git clone https://github.com/josecormane/talking-head-trim.git
 cd talking-head-trim
 cp .env.example .env
 npm test
+```
+
+## Use With An Agent
+
+After installing the skill, ask Codex, Claude Code, or another skill-compatible coding agent:
+
+```text
+Use the talking-head-cleanup skill to clean this raw talking-head recording: /path/to/video.mov
 ```
 
 ## Prepare A Cut Packet

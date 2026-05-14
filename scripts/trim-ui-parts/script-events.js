@@ -183,6 +183,7 @@ export function scriptEvents() {
     document.querySelectorAll("[data-nudge]").forEach(b => b.addEventListener("click", () => { const [s, a] = b.dataset.nudge.split(":"); applyNudge(s, Number(a)); }));
     $("playContext").addEventListener("click", () => { const r = state.ranges[state.selected]; playWindow(Math.max(0, r.start - 1.25), Math.min(state.project.duration, r.end + 1.25)); });
     $("playSegment").addEventListener("click", () => { const r = state.ranges[state.selected]; playWindow(r.start, r.end); });
+    $("deleteSegmentButton").addEventListener("click", () => deleteSelectedSegment());
     $("goPrev").addEventListener("click", () => selectSegment(state.selected - 1, true));
     $("goNext").addEventListener("click", () => selectSegment(state.selected + 1, true));
     $("modeEditButton").addEventListener("click", () => setPlaybackChoice("edit"));

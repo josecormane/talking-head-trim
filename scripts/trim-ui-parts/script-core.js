@@ -115,6 +115,7 @@ export function scriptCore() {
         eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>',
         scissors: '<circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.5 15.5"></path><path d="M14 14 20 20"></path><path d="M8.5 8.5 12 12"></path>',
         plus: '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
+        trash: '<path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path>',
         info: '<circle cx="12" cy="12" r="9"></circle><path d="M12 10v6"></path><path d="M12 7h.01"></path>',
         x: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
         undo: '<path d="M9 14 4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path>',

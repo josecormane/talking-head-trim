@@ -257,6 +257,10 @@ body.rendering .editor-shell { pointer-events: none; opacity: .8; }
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px;
 }
+.segment-head-actions {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 6px; flex-shrink: 0;
+}
 .segment-title-block { min-width: 0; display: grid; gap: 2px; }
 .segment-title-block .section-title { margin-bottom: 0; }
 .segment-title-block strong {

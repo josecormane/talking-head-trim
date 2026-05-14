@@ -151,6 +151,11 @@ export function scriptRender() {
           setIconButton(addBtn, "plus", "Add as segment", "icon-btn success");
           addBtn.addEventListener("click", () => insertWordsAsRange(b.words, "Inserted deleted block."));
           acts.appendChild(addBtn);
+        } else {
+          const delBtn = document.createElement("button"); delBtn.type = "button";
+          setIconButton(delBtn, "trash", "Delete segment", "icon-btn danger");
+          delBtn.addEventListener("click", () => deleteRange(b.index));
+          acts.appendChild(delBtn);
         }
         head.append(title, acts);
         const txt = document.createElement("div"); txt.className = "text-block " + (b.type === "keep" ? "keep" : "drop");
@@ -226,6 +231,22 @@ export function scriptRender() {
       pushUndoSnapshot(before, "Add segment"); markDirty();
       renderTimeline(); renderInspector({ focusTranscript: true }); seekSource(s, false);
     }
+    function deleteRange(ri) {
+      stopPlayback();
+      if (state.ranges.length <= 1) { setStatus("Cannot delete the only segment."); return; }
+      const removed = state.ranges[ri];
+      if (!removed) return;
+      const before = editSnapshot("Delete segment");
+      state.ranges.splice(ri, 1);
+      state.selected = clamp(ri, 0, state.ranges.length - 1);
+      state.wordSelection = null; state.selectedSilence = null;
+      pushUndoSnapshot(before, "Delete segment"); markDirty();
+      renderTimeline(); renderInspector({ focusTranscript: true });
+      const target = state.ranges[state.selected];
+      seekSource(target.start, false); scrollToTime(target.start);
+      setStatus("Deleted segment " + formatTime(removed.start) + "-" + formatTime(removed.end));
+    }
+    function deleteSelectedSegment() { deleteRange(state.selected); }
     function addSelectedDeletedRange() { const ws = selectedWords(); if (!ws.length) { setStatus("Select words first."); return; } insertWordsAsRange(ws, "Inserted selected words."); }
     function clearDeletedSelection() { state.wordSelection = null; updateDeletedSelectionUi(); }
     function resetToPrimaryCut() {

@@ -94,7 +94,10 @@ export function htmlMarkup() {
               <span class="section-title">Selected cut</span>
               <strong id="selectedTitle">Segment</strong>
             </div>
-            <span id="selectedOutput" class="badge">00:00.00</span>
+            <div class="segment-head-actions">
+              <span id="selectedOutput" class="badge">00:00.00</span>
+              <button id="deleteSegmentButton" class="icon-btn danger" data-icon="trash" title="Delete selected segment" aria-label="Delete selected segment"></button>
+            </div>
           </div>
 
           <div class="inspector-grid compact-grid">

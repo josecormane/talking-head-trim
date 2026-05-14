@@ -155,11 +155,15 @@ export function scriptEvents() {
       if (state.dragPlayhead) seekSource(timeFromClientX(ev.clientX));
     });
     document.addEventListener("pointerup", () => {
-      if (state.drag?.changed) { pushUndoSnapshot(state.drag.before, "Move " + (state.drag.side === "start" ? "start" : "end")); scheduleAutosave(); }
+      if (state.drag?.changed) {
+        pushUndoSnapshot(state.drag.before, "Move " + (state.drag.side === "start" ? "start" : "end"));
+        scheduleAutosave();
+        renderInspector({ focusTranscript: false });
+      }
       state.drag = null; state.dragPlayhead = false; state.selectingWords = false;
     });
     function setTimelineZoom(value) {
-      const t = state.ranges[state.selected]?.start || $("sourceVideo").currentTime || 0;
+      const t = $("sourceVideo").currentTime || state.ranges[state.selected]?.start || 0;
       const slider = $("zoomSlider");
       state.scale = clamp(Number(value), Number(slider.min), Number(slider.max));
       slider.value = String(state.scale);
@@ -183,6 +187,7 @@ export function scriptEvents() {
     $("goNext").addEventListener("click", () => selectSegment(state.selected + 1, true));
     $("modeEditButton").addEventListener("click", () => setPlaybackChoice("edit"));
     $("modeSourceButton").addEventListener("click", () => setPlaybackChoice("source"));
+    $("greenOnlyToggle").addEventListener("change", ev => setPlaybackChoice(ev.target.checked ? "edit" : "source"));
     $("playPauseButton").addEventListener("click", () => togglePlayback());
     $("undoButton").addEventListener("click", () => undoEdit());
     $("redoButton").addEventListener("click", () => redoEdit());
@@ -260,7 +265,7 @@ export function scriptEvents() {
         const audio = await actx.decodeAudioData(buf);
         const raw = audio.getChannelData(0);
         const dur = audio.duration;
-        const samplesPerPx = Math.floor(raw.length / (dur * 18));
+        const samplesPerPx = Math.max(1, Math.floor(raw.length / (dur * 96)));
         const peaks = [];
         for (let i = 0; i < raw.length; i += samplesPerPx) {
           let max = 0;

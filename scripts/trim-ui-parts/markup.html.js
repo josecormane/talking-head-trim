@@ -69,7 +69,7 @@ export function htmlMarkup() {
           </div>
           <div class="timeline-bar-right zoom-control" aria-label="Timeline zoom">
             <button id="zoomOutButton" class="icon-btn zoom-button" data-icon="zoom-out" title="Zoom out" aria-label="Zoom out"></button>
-            <input id="zoomSlider" type="range" min="2" max="18" step="1" value="6" aria-label="Timeline zoom" />
+            <input id="zoomSlider" type="range" min="2" max="96" step="1" value="6" aria-label="Timeline zoom" />
             <button id="zoomInButton" class="icon-btn zoom-button" data-icon="zoom-in" title="Zoom in" aria-label="Zoom in"></button>
             <span id="zoomValue" class="zoom-value">6 px/s</span>
           </div>

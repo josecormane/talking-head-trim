@@ -225,12 +225,8 @@ export function scriptCore() {
 
     function snapSeekTime(t) {
       if (!$("playheadSnapToggle").checked) return round3(t);
-      const b = editBoundaries(), s = nearest(b, t), th = Math.max(0.12, 10 / state.scale);
+      const b = editBoundaries(), s = nearest(b, t), th = Math.min(0.25, Math.max(0.05, 6 / state.scale));
       if (Math.abs(s - t) <= th) return round3(s);
-      if ($("greenOnlyToggle").checked && rangeIndexAtTime(t) === -1) {
-        const ns = state.ranges.find(r => r.start > t)?.start;
-        if (Number.isFinite(ns)) return round3(ns);
-      }
       return round3(t);
     }
     function seekSource(t, sel) {
@@ -247,16 +243,18 @@ export function scriptCore() {
       if (side === "start") return { min: p ? p.end + 0.02 : 0, max: c.end - 0.08 };
       return { min: c.start + 0.08, max: n ? n.start - 0.02 : state.project.duration };
     }
-    function setBoundaryValue(i, side, raw) {
+    function setBoundaryValue(i, side, raw, opts) {
+      opts = opts || {};
       const b = boundsFor(i, side);
-      let nt = clamp(snapTime(clamp(raw, b.min, b.max), side), b.min, b.max);
+      const clipped = clamp(raw, b.min, b.max);
+      let nt = opts.snap === false ? clipped : clamp(snapTime(clipped, side), b.min, b.max);
       const prev = state.ranges[i][side]; state.ranges[i][side] = round3(nt);
       return prev !== state.ranges[i][side];
     }
     function setBoundary(i, side, raw, opts) {
       opts = typeof opts === "object" ? opts : { recordHistory: Boolean(opts) };
       const before = opts.recordHistory === false ? null : editSnapshot(opts.historyLabel);
-      const changed = setBoundaryValue(i, side, raw);
+      const changed = setBoundaryValue(i, side, raw, opts);
       state.selectedSilence = null;
       if (changed) {
         if (opts.recordHistory !== false) pushUndoSnapshot(before, opts.historyLabel || "Adjust " + (side === "start" ? "start" : "end"));
@@ -268,9 +266,9 @@ export function scriptCore() {
     function applyNudge(side, amount) {
       const scope = $("nudgeScope").value;
       const label = "Move " + (side === "start" ? "start" : "end") + " " + Math.abs(amount * 1000).toFixed(0) + " ms";
-      if (scope !== "all") { setBoundary(state.selected, side, state.ranges[state.selected][side] + amount, { historyLabel: label }); return; }
+      if (scope !== "all") { setBoundary(state.selected, side, state.ranges[state.selected][side] + amount, { historyLabel: label, snap: false }); return; }
       const before = editSnapshot(label + " for all"); let changed = 0;
-      state.ranges.forEach((r, i) => { if (setBoundaryValue(i, side, r[side] + amount)) changed++; });
+      state.ranges.forEach((r, i) => { if (setBoundaryValue(i, side, r[side] + amount, { snap: false })) changed++; });
       state.selectedSilence = null;
       if (changed) { pushUndoSnapshot(before, label + " for all"); markDirty(); }
       updateTimelinePositions(); renderInspector();
@@ -326,6 +324,7 @@ export function scriptCore() {
       state.playbackChoice = c;
       $("modeEditButton").classList.toggle("active", c === "edit");
       $("modeSourceButton").classList.toggle("active", c === "source");
+      if ($("greenOnlyToggle")) $("greenOnlyToggle").checked = c === "edit";
       if (state.playMode !== "paused") stopPlayback();
       updateTransportTimecode();
     }
@@ -336,10 +335,15 @@ export function scriptCore() {
       if (!state.ranges.length) return;
       const ct = $("sourceVideo").currentTime || 0;
       let i = fromSel ? state.selected : rangeIndexAtTime(ct);
-      if (i === -1) i = nextRangeIndexAfter(ct);
+      let startAt = ct;
+      if (i === -1) {
+        i = nextRangeIndexAfter(ct);
+        startAt = state.ranges[i]?.start || 0;
+      }
       if (i >= state.ranges.length) i = 0;
+      if (fromSel) startAt = state.ranges[i].start;
       state.editPlaybackIndex = i; selectSegment(i, false); setPlayMode("edit");
-      $("sourceVideo").currentTime = state.ranges[i].start; $("sourceVideo").play(); scrollToTime(state.ranges[i].start);
+      $("sourceVideo").currentTime = clamp(startAt, state.ranges[i].start, state.ranges[i].end); $("sourceVideo").play(); scrollToTime($("sourceVideo").currentTime);
     }
     function continueEditPlayback() {
       if (state.playMode !== "edit") return;

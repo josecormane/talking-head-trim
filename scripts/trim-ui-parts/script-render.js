@@ -10,7 +10,7 @@ export function scriptRender() {
     }
     function renderRuler() {
       const ruler = $("ruler"); ruler.innerHTML = "";
-      const step = state.scale < 4 ? 60 : state.scale < 9 ? 30 : 10;
+      const step = state.scale < 4 ? 60 : state.scale < 9 ? 30 : state.scale < 24 ? 10 : state.scale < 60 ? 5 : 1;
       for (let t = 0; t <= state.project.duration; t += step) {
         const tick = document.createElement("div"); tick.className = "tick"; tick.style.left = px(t) + "px";
         const lbl = document.createElement("span"); lbl.textContent = formatTime(t);

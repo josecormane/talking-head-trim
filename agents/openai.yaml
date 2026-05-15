@@ -1,0 +1,7 @@
+interface:
+  display_name: "Talking Head Trim"
+  short_description: "Clean raw talking-head takes into first cuts"
+  brand_color: "#22C55E"
+  default_prompt: "Use $talking-head-cleanup to clean this raw talking-head recording: /path/to/video.mov"
+policy:
+  allow_implicit_invocation: true

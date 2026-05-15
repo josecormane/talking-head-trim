@@ -6,6 +6,12 @@ Free, open-source, local-first skill for cleaning messy talking-head raw recordi
 
 Talking Head Trim is a skill you can install and use with Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent. It creates a transcript-aware edit packet, proposes the cleanup cut, serves an interactive trim UI, and renders the final video locally. Local Whisper is the default transcription path; API providers are optional. The source video stays local except when an API transcriber is selected, and then only the extracted audio is sent to that provider.
 
+## How It Works
+
+Talking Head Trim is built around a two-pass cleanup loop. The first pass turns the raw source into an initial EDL. The second pass renders that EDL into a real MP4, transcribes and scans the already-cut video, and forces the agent to review the assembled cut before anything is called final.
+
+![Talking Head Trim system workflow diagram](docs/images/06-system-workflow.png)
+
 ## See It In Action
 
 The launch demo uses a real iPhone talking-head recording:

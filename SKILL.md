@@ -1,15 +1,22 @@
 ---
 name: talking-head-cleanup
-description: Use when cleaning raw talking-head video recordings into an editorially trimmed cut with the free open-source Talking Head Trim workflow. Defaults to local Whisper transcription with faster-whisper medium, and also supports external word-timestamp transcripts, OpenAI Whisper, ElevenLabs Scribe, Gemini transcription, silence scans, transcript packing, trim UI review, EDL adjustment, and final render.
+description: Use when turning messy raw talking-head recordings into clean editable first cuts. Runs locally by default with faster-whisper medium, builds transcript and silence artifacts, has the agent create a first EDL, renders and analyzes a first-pass MP4 for mandatory second review, opens a trim UI for manual adjustments, and renders a max-res final cut. Remote transcription APIs and external transcripts are optional.
 license: MIT
 compatibility: Requires Node.js 20+, ffmpeg/ffprobe, and optional transcription provider keys.
 metadata:
   version: "0.1.0"
+  short-description: "Local-first talking-head cleanup into editable first cuts."
 ---
 
 # Talking Head Cleanup
 
 Use this free open-source skill to prepare and trim raw presenter recordings before short-form video assembly. It runs locally with Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent.
+
+## What It Does
+
+Talking Head Trim turns a raw recording full of pauses, false starts, repeated takes, and unfinished sentences into a clean first cut. It is not a full video editor; it handles the painful cleanup pass before CapCut, Premiere, DaVinci, HyperFrames, captions, or motion graphics.
+
+The workflow is local-first: local Whisper is the default transcription path, the source video stays on the user's machine, and remote transcription APIs are optional.
 
 ## Inputs To Ask For
 

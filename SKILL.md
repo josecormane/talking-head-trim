@@ -1,6 +1,6 @@
 ---
 name: talking-head-cleanup
-description: Use when cleaning raw talking-head video recordings into an editorially trimmed cut. Supports external word-timestamp transcripts, OpenAI Whisper, ElevenLabs Scribe, Gemini transcription, silence scans, transcript packing, trim UI review, EDL adjustment, and final render.
+description: Use when cleaning raw talking-head video recordings into an editorially trimmed cut with the free open-source Talking Head Trim workflow. Supports external word-timestamp transcripts, OpenAI Whisper, ElevenLabs Scribe, Gemini transcription, silence scans, transcript packing, trim UI review, EDL adjustment, and final render.
 license: MIT
 compatibility: Requires Node.js 20+, ffmpeg/ffprobe, and optional transcription provider keys.
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # Talking Head Cleanup
 
-Use this skill to prepare and trim raw presenter recordings before short-form video assembly.
+Use this free open-source skill to prepare and trim raw presenter recordings before short-form video assembly. It runs locally with Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent.
 
 ## Inputs To Ask For
 

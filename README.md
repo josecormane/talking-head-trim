@@ -2,9 +2,9 @@
 
 [![skills.sh](https://skills.sh/b/josecormane/talking-head-trim)](https://skills.sh/josecormane/talking-head-trim)
 
-Clean a messy talking-head raw recording into an editable first cut.
+Free, open-source, local-first skill for cleaning messy talking-head raw recordings into editable first cuts.
 
-Talking Head Trim creates a transcript-aware edit packet, proposes the cleanup cut, serves an interactive trim UI, and renders the final video locally. It supports manual/external transcripts or transcription APIs. The source video stays local except when an API transcriber is selected, and then only the extracted audio is sent to that provider.
+Talking Head Trim is a skill you can install and use with Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent. It creates a transcript-aware edit packet, proposes the cleanup cut, serves an interactive trim UI, and renders the final video locally. The source video stays local except when an API transcriber is selected, and then only the extracted audio is sent to that provider.
 
 ## See It In Action
 
@@ -46,6 +46,14 @@ The interface is built for the cleanup pass before the main edit: adjust segment
 
 ## Install
 
+Install the free open-source skill:
+
+```bash
+npx skills add josecormane/talking-head-trim
+```
+
+Or clone the repo directly:
+
 ```bash
 git clone https://github.com/josecormane/talking-head-trim.git
 cd talking-head-trim
@@ -55,7 +63,7 @@ npm test
 
 ## Use With An Agent
 
-After installing the skill, ask Codex, Claude Code, or another skill-compatible coding agent:
+After installing the skill, ask Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent:
 
 ```text
 Use the talking-head-cleanup skill to clean this raw talking-head recording: /path/to/video.mov

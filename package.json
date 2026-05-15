@@ -1,7 +1,7 @@
 {
   "name": "talking-head-trim",
   "version": "0.1.0",
-  "description": "Local talking-head video cleanup workflow with transcript-aware trim UI.",
+  "description": "Free open-source local talking-head video cleanup workflow with transcript-aware trim UI.",
   "type": "module",
   "bin": {
     "talking-head-prepare": "scripts/prepare-talking-head-cleanup.mjs",

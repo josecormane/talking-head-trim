@@ -42,7 +42,9 @@ Both modes must respect the maximum duration policy.
 ## Required Tools
 
 - `video-use`
-- One configured transcription provider:
+- One transcription provider:
+  - `local-whisper` for local faster-whisper word timestamps. This is the
+    default and uses model `medium` unless overridden,
   - `elevenlabs` for ElevenLabs Scribe word timestamps,
   - `openai` for OpenAI Whisper word timestamps,
   - `gemini` for Gemini segment timestamps with estimated word boundaries,
@@ -68,6 +70,13 @@ Both modes must respect the maximum duration policy.
   edl_final.json
   presenter_cut.mp4
   presenter_cut_1080x1920.mp4
+  presenter_cut_pass1.mp4
+  second_pass/
+    presenter_cut_pass1_manifest.json
+    pass1_silence_scan.txt
+    pass1_silence_scan.json
+    second_pass_review_packet.md
+    analysis/transcripts/presenter_cut_pass1.json
   presenter_cut_final_maxres.mp4
   editor_qc.md
   review/index.html
@@ -91,19 +100,20 @@ Both modes must respect the maximum duration policy.
      --source <raw_recording> \
      --mode tight_reel \
      --max-duration 03:00 \
-     --transcriber openai \
-     --language es \
-     --num-speakers 1
+     --transcriber local-whisper \
+     --transcribe-model medium \
+     --language es
    ```
 
-   `--transcriber` can be `elevenlabs`, `openai`, or `gemini`. The default is
+   `--transcriber` can be `local-whisper`, `elevenlabs`, `openai`, `gemini`,
+   or `external`. The default is
    `VIDEO_WORKFLOW_TRANSCRIBE_PROVIDER` from `.env`, falling back to
-   `elevenlabs`. Use `--force-transcribe` when changing provider for a source
-   that already has a cached transcript JSON.
+   `local-whisper`. Local Whisper uses `faster-whisper` with model `medium`
+   by default. Use `--force-transcribe` when changing provider for a source that
+   already has a cached transcript JSON.
 
-   Gemini defaults to `gemini-3-flash-preview` because it is the current
-   working audio path on this project key. Use `--transcribe-model
-   gemini-3.1-pro-preview` only when that model has quota/billing enabled.
+   Remote providers are optional. Gemini defaults to `gemini-3-flash-preview`.
+   OpenAI uses `whisper-1` when selected explicitly with `--transcriber openai`.
 
    If transcription was done outside this workflow, import it instead of
    calling an API:
@@ -166,11 +176,33 @@ Both modes must respect the maximum duration policy.
 
    Use this UI to adjust cut starts/ends against the original recording. It
    writes `edl_adjusted.json`; it does not overwrite `edl_final.json`.
-8. Run the mandatory second-pass review from user feedback.
-9. Render `presenter_cut.mp4` and review-size `presenter_cut_1080x1920.mp4`
+8. Materialize the mandatory second-pass review from the already-cut MP4:
+
+   ```bash
+   npm run reel:talking-head:second-pass -- \
+     --edit-dir <run_root>/presenter_edit
+   ```
+
+   This renders `presenter_cut_pass1.mp4` from `edl_v1.json`, transcribes that
+   already-cut MP4, scans the output audio for silences, and writes
+   `second_pass/second_pass_review_packet.md`.
+9. The agent reviews `second_pass/second_pass_review_packet.md` plus
+   `presenter_cut_pass1.mp4`, then writes `edl_final.json` and `editor_qc.md`.
+10. Run the deterministic QC gate:
+
+   ```bash
+   npm run reel:talking-head:qc -- \
+     --edit-dir <run_root>/presenter_edit
+   ```
+
+   This gate fails if the first-pass MP4, first-pass transcript, first-pass
+   silence scan, second-pass packet, `edl_v1.json`, `edl_final.json`, or
+   `editor_qc.md` are missing, or if `editor_qc.md` does not explicitly
+   document the second pass.
+11. Render `presenter_cut.mp4` and review-size `presenter_cut_1080x1920.mp4`
    from `edl_adjusted.json` when that file exists, otherwise from
    `edl_final.json`.
-10. After approval, render the max-resolution iPhone cut from the approved EDL:
+12. After approval, render the max-resolution iPhone cut from the approved EDL:
 
    ```bash
    npm run reel:talking-head:render-final -- \
@@ -290,9 +322,9 @@ the selected cut mode.
 
 ## Mandatory Second-Pass Review
 
-After `edl_v1.json` and the first preview exist, run one more review before the
-final render. The second pass is not a general reread; it hunts specifically
-for misses that have survived previous projects:
+After `edl_v1.json` exists, render `presenter_cut_pass1.mp4` and analyze that
+already-cut MP4 before final render. The second pass is not a general reread;
+it hunts specifically for misses that have survived previous projects:
 
 - logic breaks between adjacent kept segments,
 - unnecessary repeated ideas or repeated setup lines,

@@ -4,7 +4,7 @@
 
 Free, open-source, local-first skill for cleaning messy talking-head raw recordings into editable first cuts.
 
-Talking Head Trim is a skill you can install and use with Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent. It creates a transcript-aware edit packet, proposes the cleanup cut, serves an interactive trim UI, and renders the final video locally. The source video stays local except when an API transcriber is selected, and then only the extracted audio is sent to that provider.
+Talking Head Trim is a skill you can install and use with Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent. It creates a transcript-aware edit packet, proposes the cleanup cut, serves an interactive trim UI, and renders the final video locally. Local Whisper is the default transcription path; API providers are optional. The source video stays local except when an API transcriber is selected, and then only the extracted audio is sent to that provider.
 
 ## See It In Action
 
@@ -38,8 +38,13 @@ The interface is built for the cleanup pass before the main edit: adjust segment
 
 - Node.js 20+
 - `ffmpeg` and `ffprobe`
+- Python 3
+- `faster-whisper` for the default local transcription path:
+  ```bash
+  python3 -m pip install -r requirements.txt
+  ```
 - Python 3 with `requests` only when using ElevenLabs Scribe
-- Optional API key for one transcription provider:
+- Optional API key only when using a remote transcription provider:
   - `ELEVENLABS_API_KEY`
   - `OPENAI_API_KEY`
   - `GEMINI_API_KEY`
@@ -96,6 +101,7 @@ npm run talking-head:prepare -- \
 
 Provider options:
 
+- `local-whisper`: default local transcription via `faster-whisper`, model `medium` unless overridden.
 - `external`: import JSON with word timestamps.
 - `openai`: uses `whisper-1` with word timestamps.
 - `elevenlabs`: uses ElevenLabs Scribe through `tools/video-use/helpers/transcribe.py`.
@@ -114,6 +120,24 @@ npm run talking-head:trim-ui -- \
 ```
 
 Open `http://127.0.0.1:4377/`.
+
+## QC Gate
+
+Before calling a cut final, materialize the second-pass review from the first rendered MP4:
+
+```bash
+npm run talking-head:second-pass -- \
+  --edit-dir ./runs/demo/presenter_edit
+```
+
+That command renders `presenter_cut_pass1.mp4`, transcribes the already-cut MP4, scans that output audio for silences, and writes `second_pass/second_pass_review_packet.md` for the agent to review.
+
+After the agent writes `edl_final.json` and `editor_qc.md`, verify that the first EDL, first-pass MP4 analysis, second-pass EDL, and QC note exist:
+
+```bash
+npm run talking-head:qc -- \
+  --edit-dir ./runs/demo/presenter_edit
+```
 
 ## Render
 

@@ -1,25 +1,29 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { requireEnv } from "./env.mjs";
 
 const OPENAI_TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions";
 const GEMINI_GENERATE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const LOCAL_WHISPER_HELPER = resolve(dirname(fileURLToPath(import.meta.url)), "..", "local-whisper-transcribe.py");
 
-export const TRANSCRIBERS = new Set(["elevenlabs", "openai", "gemini", "external"]);
+export const TRANSCRIBERS = new Set(["local-whisper", "elevenlabs", "openai", "gemini", "external"]);
 
 export function normalizeTranscriber(value = "") {
   const normalized = String(value || "").trim().toLowerCase();
-  if (!normalized || normalized === "default") return "elevenlabs";
+  if (!normalized || normalized === "default") return "local-whisper";
+  if (["local", "local-whisper", "whisper", "whisper-local", "faster-whisper", "fasterwhisper"].includes(normalized)) return "local-whisper";
   if (["eleven", "elevenlab", "elevenlabs", "elenlabs", "scribe"].includes(normalized)) return "elevenlabs";
-  if (["openai", "whisper", "whisper-1"].includes(normalized)) return "openai";
+  if (["openai", "openai-whisper", "whisper-api", "whisper-1"].includes(normalized)) return "openai";
   if (["gemini", "google"].includes(normalized)) return "gemini";
   if (["external", "manual", "import", "file"].includes(normalized)) return "external";
-  throw new Error(`Unknown transcriber: ${value}. Use elevenlabs, openai, gemini, or external.`);
+  throw new Error(`Unknown transcriber: ${value}. Use local-whisper, elevenlabs, openai, gemini, or external.`);
 }
 
 export function defaultTranscribeModel(provider) {
+  if (provider === "local-whisper") return process.env.LOCAL_WHISPER_MODEL || "medium";
   if (provider === "openai") return process.env.OPENAI_TRANSCRIBE_MODEL || "whisper-1";
   if (provider === "gemini") return process.env.GEMINI_TRANSCRIBE_MODEL || "gemini-3-flash-preview";
   if (provider === "external") return "external-json";
@@ -59,6 +63,9 @@ export async function transcribeSource({
   if (selected === "elevenlabs") {
     return transcribeWithElevenLabs({ source, editDir, language, numSpeakers, python, helpersDir });
   }
+  if (selected === "local-whisper") {
+    return transcribeWithLocalWhisper({ source, transcriptPath, language, model: model || defaultTranscribeModel("local-whisper"), python });
+  }
   if (selected === "openai") {
     return transcribeWithOpenAI({ source, transcriptPath, language, model: model || defaultTranscribeModel("openai") });
   }
@@ -90,6 +97,34 @@ function transcribeWithElevenLabs({ source, editDir, language, numSpeakers, pyth
   if (numSpeakers) cmdArgs.push("--num-speakers", String(numSpeakers));
   run(python, cmdArgs, { stdio: "inherit" });
   return resolve(editDir, "transcripts", `${stem(source)}.json`);
+}
+
+function transcribeWithLocalWhisper({ source, transcriptPath, language, model, python }) {
+  if (!existsSync(LOCAL_WHISPER_HELPER)) throw new Error(`Missing helper: ${LOCAL_WHISPER_HELPER}`);
+
+  const tmp = mkdtempSync(resolve(tmpdir(), "talking-head-local-whisper-"));
+  try {
+    const audioPath = resolve(tmp, `${stem(source)}.wav`);
+    extractWav(source, audioPath);
+    console.log(`  transcribing locally with faster-whisper ${model} (${formatMb(audioPath)} MB wav)`);
+
+    const cmdArgs = [
+      LOCAL_WHISPER_HELPER,
+      "--audio", audioPath,
+      "--source", source,
+      "--output", transcriptPath,
+      "--model", model,
+    ];
+    if (language) cmdArgs.push("--language", language);
+    if (process.env.LOCAL_WHISPER_DEVICE) cmdArgs.push("--device", process.env.LOCAL_WHISPER_DEVICE);
+    if (process.env.LOCAL_WHISPER_COMPUTE_TYPE) cmdArgs.push("--compute-type", process.env.LOCAL_WHISPER_COMPUTE_TYPE);
+    if (/^(1|true|yes)$/i.test(process.env.LOCAL_WHISPER_VAD || "")) cmdArgs.push("--vad-filter");
+
+    run(python, cmdArgs, { stdio: "inherit" });
+    return transcriptPath;
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 async function transcribeWithOpenAI({ source, transcriptPath, language, model }) {
@@ -401,6 +436,22 @@ function extractAudio(source, audioPath) {
     "aac",
     "-b:a",
     "64k",
+    audioPath,
+  ], { stdio: "ignore" });
+}
+
+function extractWav(source, audioPath) {
+  run("ffmpeg", [
+    "-y",
+    "-i",
+    source,
+    "-vn",
+    "-ac",
+    "1",
+    "-ar",
+    "16000",
+    "-c:a",
+    "pcm_s16le",
     audioPath,
   ], { stdio: "ignore" });
 }

@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument("--model", default=os.environ.get("LOCAL_WHISPER_MODEL", "medium"), help="faster-whisper model name or local model directory.")
     parser.add_argument("--language", default="", help="Optional language code such as en or es.")
     parser.add_argument("--device", default=os.environ.get("LOCAL_WHISPER_DEVICE", "auto"), help="faster-whisper device: auto, cpu, cuda.")
-    parser.add_argument("--compute-type", default=os.environ.get("LOCAL_WHISPER_COMPUTE_TYPE", ""), help="Optional compute type such as int8, float16, int8_float16.")
+    parser.add_argument("--compute-type", default=os.environ.get("LOCAL_WHISPER_COMPUTE_TYPE", "int8"), help="Optional compute type such as int8, float16, int8_float16. Defaults to int8 for practical CPU performance.")
     parser.add_argument("--vad-filter", action="store_true", help="Enable faster-whisper VAD filtering. Off by default for editorial completeness.")
     return parser.parse_args()
 
@@ -60,6 +60,11 @@ def main():
     if args.compute_type:
         model_kwargs["compute_type"] = args.compute_type
 
+    print(
+        f"Loading faster-whisper model={args.model} device={args.device} compute_type={args.compute_type or 'default'}",
+        file=sys.stderr,
+        flush=True,
+    )
     model = WhisperModel(args.model, **model_kwargs)
     transcribe_kwargs = {
         "beam_size": 5,
@@ -97,6 +102,12 @@ def main():
                 "speaker_id": "speaker_0",
                 "probability": getattr(word, "probability", None),
             })
+        if index == 0 or (index + 1) % 10 == 0:
+            print(
+                f"Transcribed segment {index + 1}: {rounded(segment.start)}-{rounded(segment.end)}s, words={len(words)}",
+                file=sys.stderr,
+                flush=True,
+            )
 
     if not words:
         print("faster-whisper returned no word timestamps; cannot build precise trim handles.", file=sys.stderr)

@@ -799,8 +799,17 @@ try {
   const server = createApp(args);
   server.listen(args.port, args.host, () => {
     const url = `http://${args.host}:${args.port}/`;
+    const editDir = resolve(args.editDir);
+    const handoffDir = resolve(editDir, "trim_ui");
+    mkdirSync(handoffDir, { recursive: true });
+    writeJson(resolve(handoffDir, "handoff.json"), {
+      url,
+      edit_dir: editDir,
+      edl_path: resolve(args.edl || resolve(editDir, existsSync(resolve(editDir, "edl_adjusted.json")) ? "edl_adjusted.json" : "edl_final.json")),
+      started_at: new Date().toISOString(),
+    });
     console.log(`Talking Head Trim UI: ${url}`);
-    console.log(`Edit dir: ${resolve(args.editDir)}`);
+    console.log(`Edit dir: ${editDir}`);
   });
 } catch (error) {
   console.error(error.message);

@@ -1,6 +1,6 @@
 ---
 name: talking-head-cleanup
-description: Use when turning messy raw talking-head recordings into clean editable first cuts. Runs locally by default with faster-whisper medium, builds transcript and silence artifacts, has the agent create a first EDL, renders and analyzes a first-pass MP4 for mandatory second review, opens a trim UI for manual adjustments, and renders a max-res final cut. Remote transcription APIs and external transcripts are optional.
+description: Use when turning messy raw talking-head recordings into clean editable first cuts. Runs locally by default with faster-whisper medium/int8, builds transcript and silence artifacts, has the agent create a first EDL, renders and analyzes a first-pass MP4 for mandatory second review, produces a review render plus readable script, opens a trim UI for manual adjustments, and renders a max-res final cut after user approval. Remote transcription APIs and external transcripts are optional.
 license: MIT
 compatibility: Requires Node.js 20+, ffmpeg/ffprobe, and optional transcription provider keys.
 metadata:
@@ -25,7 +25,7 @@ The workflow is local-first: local Whisper is the default transcription path, th
 - Cut mode: `tight_reel` or `natural_explainer`.
 - Maximum duration: `MM:SS` or `none`.
 - Transcription source:
-  - local Whisper via `faster-whisper` (default, model `medium`),
+  - local Whisper via `faster-whisper` (default, model `medium`, compute `int8`),
   - external JSON with word timestamps,
   - OpenAI,
   - ElevenLabs,
@@ -69,21 +69,35 @@ Prefer `local-whisper`, `external`, or `openai` when precise word-level edit han
    ```
 
    This renders `presenter_cut_pass1.mp4`, transcribes that already-cut MP4, scans its output audio for silences, and writes `second_pass/second_pass_review_packet.md`.
-6. The agent must review `second_pass/second_pass_review_packet.md` and the first-pass MP4 before showing the cut as final: check logic breaks, repeated ideas, hidden pauses, clipped words, and awkward audio-only artifacts. Write `edl_final.json` and `editor_qc.md` with an explicit second-pass note.
-7. Start the trim UI:
+6. The agent must review `second_pass/second_pass_review_packet.md` and the first-pass MP4 before producing the review cut: check logic breaks, repeated ideas, hidden pauses, clipped words, and awkward audio-only artifacts. The second pass must also reopen the original prep (`takes_packed.md`, `pre_scan.md`, `transcripts/*.json`) so it can replace weak ranges, recover better alternate takes, or add omitted useful detail while respecting the duration limit. Write `edl_final.json` and `editor_qc.md` with explicit notes on second-pass changes, original-source reconsideration, and repetition checks.
+7. Build the readable review script and inspect it before handoff:
 
    ```bash
-   npm run talking-head:trim-ui -- --edit-dir <edit_dir> --port 4377
+   npm run talking-head:review-script -- --edit-dir <edit_dir>
    ```
 
-8. Use the UI to adjust handles, add removed transcript blocks, cut internal silences, undo/redo, save, and render.
-9. Before final render, run:
+   The agent must read `review_script.md`. If the script exposes repeated words, repeated ideas, broken wording, or missing context, revise `edl_final.json`, rerun this command, and update `editor_qc.md`.
+8. Run QC:
 
    ```bash
    npm run talking-head:qc -- --edit-dir <edit_dir>
    ```
 
-10. Render the final max-resolution cut from the accepted EDL.
+9. Render the review MP4. This is usable if the user likes it, but it is not the final approved render:
+
+   ```bash
+   npm run talking-head:render-review -- --edit-dir <edit_dir>
+   ```
+
+10. Start the trim UI and give the user both the review MP4 path and the local UI URL:
+
+   ```bash
+   npm run talking-head:trim-ui -- --edit-dir <edit_dir> --port 4377
+   ```
+
+   Starting the UI writes `trim_ui/handoff.json`. The final renderer refuses to run until this handoff exists.
+11. Use the UI to adjust handles, add removed transcript blocks, cut internal silences, undo/redo, save, and render.
+12. Render the final max-resolution cut only after the user approves the review render or adjusted UI cut. `talking-head:render-final` is intentionally gated: it requires `review_script.md`, `presenter_cut_review_maxres_latest.json`, and `trim_ui/handoff.json`.
 
 ## Transcript Contract
 

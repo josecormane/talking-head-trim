@@ -44,7 +44,7 @@ Both modes must respect the maximum duration policy.
 - `video-use`
 - One transcription provider:
   - `local-whisper` for local faster-whisper word timestamps. This is the
-    default and uses model `medium` unless overridden,
+    default and uses model `medium` with compute `int8` unless overridden,
   - `elevenlabs` for ElevenLabs Scribe word timestamps,
   - `openai` for OpenAI Whisper word timestamps,
   - `gemini` for Gemini segment timestamps with estimated word boundaries,
@@ -54,6 +54,8 @@ Both modes must respect the maximum duration policy.
 - `npm run reel:talking-head:prepare`
 - `npm run reel:talking-head:review`
 - `npm run reel:talking-head:trim-ui`
+- `npm run reel:talking-head:review-script`
+- `npm run reel:talking-head:render-review`
 - `npm run reel:talking-head:render-final`
 
 ## Output Folder
@@ -68,6 +70,7 @@ Both modes must respect the maximum duration policy.
   pre_scan.md
   edl_v1.json
   edl_final.json
+  review_script.md
   presenter_cut.mp4
   presenter_cut_1080x1920.mp4
   presenter_cut_pass1.mp4
@@ -77,11 +80,13 @@ Both modes must respect the maximum duration policy.
     pass1_silence_scan.json
     second_pass_review_packet.md
     analysis/transcripts/presenter_cut_pass1.json
-  presenter_cut_final_maxres.mp4
+  presenter_cut_review_maxres_YYYYMMDD_HHMMSS.mp4
+  presenter_cut_review_maxres_latest.json
   editor_qc.md
   review/index.html
   edl_adjusted.json
   trim_ui/
+    handoff.json
   presenter_cut_final_maxres_YYYYMMDD_HHMMSS.mp4
   presenter_cut_final_maxres_YYYYMMDD_HHMMSS.ffprobe.json
   presenter_cut_final_maxres_latest.json
@@ -109,7 +114,7 @@ Both modes must respect the maximum duration policy.
    or `external`. The default is
    `VIDEO_WORKFLOW_TRANSCRIBE_PROVIDER` from `.env`, falling back to
    `local-whisper`. Local Whisper uses `faster-whisper` with model `medium`
-   by default. Use `--force-transcribe` when changing provider for a source that
+   and compute `int8` by default. Use `--force-transcribe` when changing provider for a source that
    already has a cached transcript JSON.
 
    Remote providers are optional. Gemini defaults to `gemini-3-flash-preview`.
@@ -156,27 +161,7 @@ Both modes must respect the maximum duration policy.
    This step is done by Codex internal reasoning from the generated packet, not
    by a separate LLM API.
 4. Build `edl_v1.json`.
-5. Render a review preview.
-6. Build the review UI:
-
-   ```bash
-   npm run reel:talking-head:review -- \
-     --edit-dir <run_root>/presenter_edit \
-     --video <run_root>/presenter_edit/presenter_cut_1080x1920.mp4
-   ```
-
-7. Open the interactive trim UI for precise handle adjustments on the original
-   source timeline:
-
-   ```bash
-   npm run reel:talking-head:trim-ui -- \
-     --edit-dir <run_root>/presenter_edit \
-     --port 4377
-   ```
-
-   Use this UI to adjust cut starts/ends against the original recording. It
-   writes `edl_adjusted.json`; it does not overwrite `edl_final.json`.
-8. Materialize the mandatory second-pass review from the already-cut MP4:
+5. Materialize the mandatory second-pass review from the already-cut MP4:
 
    ```bash
    npm run reel:talking-head:second-pass -- \
@@ -186,9 +171,23 @@ Both modes must respect the maximum duration policy.
    This renders `presenter_cut_pass1.mp4` from `edl_v1.json`, transcribes that
    already-cut MP4, scans the output audio for silences, and writes
    `second_pass/second_pass_review_packet.md`.
-9. The agent reviews `second_pass/second_pass_review_packet.md` plus
+6. The agent reviews `second_pass/second_pass_review_packet.md` plus
    `presenter_cut_pass1.mp4`, then writes `edl_final.json` and `editor_qc.md`.
-10. Run the deterministic QC gate:
+   This review must not be limited to trimming the first pass. It must reopen
+   `takes_packed.md`, `pre_scan.md`, and `transcripts/*.json` so the agent can
+   replace weak first-pass ranges, recover better alternate takes, or add
+   omitted useful detail if time allows.
+7. Build and read the user-facing review script:
+
+   ```bash
+   npm run reel:talking-head:review-script -- \
+     --edit-dir <run_root>/presenter_edit
+   ```
+
+   `review_script.md` is the condensed script with output timestamps. The
+   agent must read it before handoff and revise `edl_final.json` if it exposes
+   repeated words, repeated ideas, broken wording, or missing context.
+8. Run the deterministic QC gate:
 
    ```bash
    npm run reel:talking-head:qc -- \
@@ -198,11 +197,30 @@ Both modes must respect the maximum duration policy.
    This gate fails if the first-pass MP4, first-pass transcript, first-pass
    silence scan, second-pass packet, `edl_v1.json`, `edl_final.json`, or
    `editor_qc.md` are missing, or if `editor_qc.md` does not explicitly
-   document the second pass.
-11. Render `presenter_cut.mp4` and review-size `presenter_cut_1080x1920.mp4`
-   from `edl_adjusted.json` when that file exists, otherwise from
-   `edl_final.json`.
-12. After approval, render the max-resolution iPhone cut from the approved EDL:
+   document the second pass, original-source reconsideration, and script review.
+9. Render the review MP4 from `edl_final.json`:
+
+   ```bash
+   npm run reel:talking-head:render-review -- \
+     --edit-dir <run_root>/presenter_edit
+   ```
+
+   This produces `presenter_cut_review_maxres_YYYYMMDD_HHMMSS.mp4`. It is a
+   usable review render, not the user-approved final render.
+10. Open the interactive trim UI for precise handle adjustments on the original
+   source timeline:
+
+   ```bash
+   npm run reel:talking-head:trim-ui -- \
+     --edit-dir <run_root>/presenter_edit \
+     --port 4377
+   ```
+
+   Give the user both the review MP4 path and the UI URL. Use this UI to adjust
+   cut starts/ends against the original recording. It writes
+   `trim_ui/handoff.json` and, after saving changes, `edl_adjusted.json`; it
+   does not overwrite `edl_final.json`.
+11. After approval, render the max-resolution iPhone cut from the approved EDL:
 
    ```bash
    npm run reel:talking-head:render-final -- \
@@ -210,7 +228,8 @@ Both modes must respect the maximum duration policy.
      --edl <run_root>/presenter_edit/edl_adjusted.json
    ```
 
-11. Run the finality gate.
+   `render-final` is gated. It refuses to run until `review_script.md`,
+   `presenter_cut_review_maxres_latest.json`, and `trim_ui/handoff.json` exist.
 
 ## Programmatic vs Editorial Responsibilities
 

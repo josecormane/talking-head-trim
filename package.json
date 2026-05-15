@@ -6,6 +6,7 @@
   "bin": {
     "talking-head-prepare": "scripts/prepare-talking-head-cleanup.mjs",
     "talking-head-trim-ui": "scripts/serve-talking-head-trim-ui.mjs",
+    "talking-head-render-review": "scripts/render-talking-head-review.mjs",
     "talking-head-render-final": "scripts/render-talking-head-final.mjs"
   },
   "scripts": {
@@ -14,12 +15,16 @@
     "reel:talking-head:review": "node scripts/build-talking-head-review.mjs",
     "reel:talking-head:trim-ui": "node scripts/serve-talking-head-trim-ui.mjs",
     "reel:talking-head:second-pass": "node scripts/second-pass-talking-head-review.mjs",
+    "reel:talking-head:review-script": "node scripts/build-talking-head-review-script.mjs",
+    "reel:talking-head:render-review": "node scripts/render-talking-head-review.mjs",
     "reel:talking-head:render-final": "node scripts/render-talking-head-final.mjs",
     "reel:talking-head:qc": "node scripts/check-talking-head-qc.mjs",
     "talking-head:prepare": "node scripts/prepare-talking-head-cleanup.mjs",
     "talking-head:review": "node scripts/build-talking-head-review.mjs",
     "talking-head:trim-ui": "node scripts/serve-talking-head-trim-ui.mjs",
     "talking-head:second-pass": "node scripts/second-pass-talking-head-review.mjs",
+    "talking-head:review-script": "node scripts/build-talking-head-review-script.mjs",
+    "talking-head:render-review": "node scripts/render-talking-head-review.mjs",
     "talking-head:render-final": "node scripts/render-talking-head-final.mjs",
     "talking-head:qc": "node scripts/check-talking-head-qc.mjs"
   },

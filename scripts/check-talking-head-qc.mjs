@@ -14,8 +14,10 @@ function usage() {
     "  - second_pass/pass1_silence_scan.json exists",
     "  - second_pass/analysis/transcripts/presenter_cut_pass1.json exists",
     "  - edl_final.json exists and has ranges",
+    "  - review_script.md exists with readable output-timed script",
     "  - editor_qc.md exists",
     "  - editor_qc.md explicitly documents the mandatory second pass",
+    "  - editor_qc.md explicitly documents reconsideration of original source material",
   ].join("\n");
 }
 
@@ -58,6 +60,7 @@ function main() {
   const edlV1Path = resolve(editDir, "edl_v1.json");
   const edlFinalPath = resolve(editDir, "edl_final.json");
   const qcPath = resolve(editDir, "editor_qc.md");
+  const reviewScriptPath = resolve(editDir, "review_script.md");
   const pass1VideoPath = resolve(editDir, "presenter_cut_pass1.mp4");
   const secondPassPacketPath = resolve(editDir, "second_pass", "second_pass_review_packet.md");
   const pass1SilencePath = resolve(editDir, "second_pass", "pass1_silence_scan.json");
@@ -69,6 +72,7 @@ function main() {
   if (!existsSync(pass1SilencePath)) errors.push(`Missing first-pass silence scan: ${pass1SilencePath}`);
   if (!existsSync(pass1TranscriptPath)) errors.push(`Missing first-pass transcript: ${pass1TranscriptPath}`);
   if (!existsSync(edlFinalPath)) errors.push(`Missing final EDL after second pass: ${edlFinalPath}`);
+  if (!existsSync(reviewScriptPath)) errors.push(`Missing readable review script: ${reviewScriptPath}`);
   if (!existsSync(qcPath)) errors.push(`Missing editor QC: ${qcPath}`);
 
   if (existsSync(edlV1Path) && !hasRanges(readJson(edlV1Path, errors))) {
@@ -89,6 +93,21 @@ function main() {
     const qc = readFileSync(qcPath, "utf8");
     if (!/(second[- ]pass|second pass review|segunda revisi[oó]n|segunda pasada)/i.test(qc)) {
       errors.push("editor_qc.md must explicitly mention that the mandatory second pass/segunda revisión was run.");
+    }
+    if (!/(original source reconsideration|original source|source material|material original|transcripci[oó]n original|tomas originales)/i.test(qc)) {
+      errors.push("editor_qc.md must explicitly mention that original source material was reconsidered during the second pass.");
+    }
+    if (!/(review_script\.md|readable script|guion revisable|script final)/i.test(qc)) {
+      errors.push("editor_qc.md must mention that the readable review script was checked.");
+    }
+  }
+  if (existsSync(reviewScriptPath)) {
+    const script = readFileSync(reviewScriptPath, "utf8");
+    if (!/Final Script With Output Times/i.test(script)) {
+      errors.push("review_script.md must include a 'Final Script With Output Times' section.");
+    }
+    if (!/Output:\s*\d\d:\d\d\.\d\d-\d\d:\d\d\.\d\d/.test(script)) {
+      errors.push("review_script.md must include output timestamps for review.");
     }
   }
 

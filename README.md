@@ -4,11 +4,11 @@
 
 Free, open-source, local-first skill for cleaning messy talking-head raw recordings into editable first cuts.
 
-Talking Head Trim is a skill you can install and use with Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent. It creates a transcript-aware edit packet, proposes the cleanup cut, serves an interactive trim UI, and renders the final video locally. Local Whisper is the default transcription path; API providers are optional. The source video stays local except when an API transcriber is selected, and then only the extracted audio is sent to that provider.
+Talking Head Trim is a skill you can install and use with Codex, Claude Code, Gemini, Antigravity, or another skill-compatible coding agent. It creates a transcript-aware edit packet, proposes the cleanup cut, renders a review MP4, serves an interactive trim UI, and renders the final video locally after approval. Local Whisper is the default transcription path; API providers are optional. The source video stays local except when an API transcriber is selected, and then only the extracted audio is sent to that provider.
 
 ## How It Works
 
-Talking Head Trim is built around a two-pass cleanup loop. The first pass turns the raw source into an initial EDL. The second pass renders that EDL into a real MP4, transcribes and scans the already-cut video, and forces the agent to review the assembled cut before anything is called final.
+Talking Head Trim is built around a two-pass cleanup loop. The first pass turns the raw source into an initial EDL. The second pass renders that EDL into a real MP4, transcribes and scans the already-cut video, reopens the original source transcript, and forces the agent to review the assembled cut before anything is called final. The handoff includes both a usable review MP4 and the trim UI for manual changes.
 
 ![Talking Head Trim system workflow diagram](docs/images/06-system-workflow.png)
 
@@ -107,7 +107,7 @@ npm run talking-head:prepare -- \
 
 Provider options:
 
-- `local-whisper`: default local transcription via `faster-whisper`, model `medium` unless overridden.
+- `local-whisper`: default local transcription via `faster-whisper`, model `medium` and compute `int8` unless overridden.
 - `external`: import JSON with word timestamps.
 - `openai`: uses `whisper-1` with word timestamps.
 - `elevenlabs`: uses ElevenLabs Scribe through `tools/video-use/helpers/transcribe.py`.
@@ -129,27 +129,48 @@ Open `http://127.0.0.1:4377/`.
 
 ## QC Gate
 
-Before calling a cut final, materialize the second-pass review from the first rendered MP4:
+Before handoff, materialize the second-pass review from the first rendered MP4:
 
 ```bash
 npm run talking-head:second-pass -- \
   --edit-dir ./runs/demo/presenter_edit
 ```
 
-That command renders `presenter_cut_pass1.mp4`, transcribes the already-cut MP4, scans that output audio for silences, and writes `second_pass/second_pass_review_packet.md` for the agent to review.
+That command renders `presenter_cut_pass1.mp4`, transcribes the already-cut MP4, scans that output audio for silences, and writes `second_pass/second_pass_review_packet.md` for the agent to review. The agent should also reopen the original transcript and take packet before writing `edl_final.json`.
 
-After the agent writes `edl_final.json` and `editor_qc.md`, verify that the first EDL, first-pass MP4 analysis, second-pass EDL, and QC note exist:
+After the agent writes `edl_final.json` and `editor_qc.md`, generate the readable review script:
+
+```bash
+npm run talking-head:review-script -- \
+  --edit-dir ./runs/demo/presenter_edit
+```
+
+`review_script.md` gives the user and agent a compact script with output timestamps, plus deterministic repetition flags.
+
+Then verify that the first EDL, first-pass MP4 analysis, second-pass EDL, readable script, and QC note exist:
 
 ```bash
 npm run talking-head:qc -- \
   --edit-dir ./runs/demo/presenter_edit
 ```
 
-## Render
+## Render A Review Cut
+
+```bash
+npm run talking-head:render-review -- \
+  --edit-dir ./runs/demo/presenter_edit
+```
+
+This produces a timestamped `presenter_cut_review_maxres_*.mp4`. It may already be usable, but the user can still open the trim UI, adjust the cut, and then render the approved final.
+
+## Render Final After Approval
+
+The final renderer is gated. It refuses to run until the workflow has produced `review_script.md`, a review render manifest, and a trim UI handoff.
 
 ```bash
 npm run talking-head:render-final -- \
-  --edit-dir ./runs/demo/presenter_edit
+  --edit-dir ./runs/demo/presenter_edit \
+  --edl ./runs/demo/presenter_edit/edl_adjusted.json
 ```
 
 ## Install As A Skill
